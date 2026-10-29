@@ -5,6 +5,7 @@ import { StatCard } from '@/components/overview/StatCard';
 import { Button } from '@/components/ui/button';
 import type { ReportView } from '@/libs/cases/Reports';
 import { Link } from '@/libs/I18nNavigation';
+import { checkRows } from '@/utils/cases/ReportChecks';
 
 const checksOnCasePage = 2;
 
@@ -58,7 +59,6 @@ export function ReportSummary(props: {
   // On the analysis page a test is on the same page; elsewhere it is a link into that page.
   const testHref = (id: string) =>
     props.full ? `#test-${id}` : `${analysis}?version=${props.report.version}#test-${id}`;
-  const titleOf = (id: string) => snapshot.tests.find((test) => test.id === id)?.title ?? id;
   // The case page shows the first two checks; the full analysis shows all of them.
   const shownChecks = props.full ? snapshot.checks : snapshot.checks.slice(0, checksOnCasePage);
   const date = (value: string) => format.dateTime(new Date(value), { dateStyle: 'medium' });
@@ -70,19 +70,7 @@ export function ReportSummary(props: {
       {!props.hideFigures && <ReportFigures figures={snapshot.figures} />}
 
       <section className="grid gap-4">
-        <CheckTable
-          rows={shownChecks.map((check, index) => ({
-            id: `check-${index}`,
-            claim: check.claim,
-            result: check.result,
-            evidence: check.evidence,
-            tests: (check.tests ?? []).map((id) => ({
-              id,
-              title: titleOf(id),
-              href: testHref(id),
-            })),
-          }))}
-        />
+        <CheckTable rows={checkRows({ checks: shownChecks, tests: snapshot.tests }, testHref)} />
         {shownChecks.length < snapshot.checks.length && (
           <div className="flex flex-wrap items-center gap-4 border border-border bg-paper-sunken p-4">
             <p className="flex-1 text-sm">

@@ -471,12 +471,7 @@
     "analysis_open": "Ouvrir l’analyse complète",
     "analysis_no_report": "Pas encore de rapport. Ajoutez-en un depuis la liste des dossiers.",
     "analysis_summary": "{checks, plural, one {# vérification} other {# vérifications}} à partir de {notebooks, plural, one {# notebook} other {# notebooks}}. Une vérification sans notebook demande encore des recherches.",
-    "analysis_search": "Rechercher dans les vérifications",
-    "analysis_col_said": "La plateforme a dit",
-    "analysis_col_result": "Résultat",
-    "analysis_col_chain": "La chaîne montre",
-    "analysis_col_notebooks": "Notebooks",
-    "analysis_none": "Pas encore de notebook"
+    "analysis_search": "Rechercher dans les vérifications"
   },
   "CaseDetail": {
     "meta_title": "Dossier",
@@ -669,6 +664,8 @@
     "version_value": "{version}, enregistrée le {date}",
     "disclaimer": "Ce rapport indique ce que la chaîne montre et ce qu’elle ne montre pas. Il ne déclare aucune fraude : c’est un tribunal qui décide de l’intention.",
     "tests_label": "Rapport d’analyse",
+    "proof_label": "Preuve",
+    "tests_none": "Pas encore de test",
     "tests_title": "Tests et leurs résultats",
     "no_table": "Ce test n’a pas de tableau."
   },

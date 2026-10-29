@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
 /** What the chain showed about one thing a platform said. `not_checkable` means the chain cannot show it, so it is not guessed. */
-const checkResults = ['proven', 'partly_proven', 'not_proven', 'not_checkable'] as const;
+export const checkResults = ['proven', 'partly_proven', 'not_proven', 'not_checkable'] as const;
 
 export type CheckResult = (typeof checkResults)[number];
 

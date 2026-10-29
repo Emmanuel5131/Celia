@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import * as z from 'zod';
+import { CheckTable } from '@/components/cases/CheckTable';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AnalysisChecks } from '@/components/staff/AnalysisChecks';
 import { Button } from '@/components/ui/button';
 import { requireStaff } from '@/libs/accounts/Staff';
 import { getCase } from '@/libs/cases/Cases';
@@ -68,11 +68,12 @@ export default async function StaffCaseAnalysisPage(props: StaffCaseAnalysisPage
               notebooks: report.snapshot.tests.length,
             })}
           </p>
-          <AnalysisChecks
+          <CheckTable
             rows={checkRows(
               report.snapshot,
               (testId) => `${analysis}?version=${report.version}#test-${testId}`,
             )}
+            searchPlaceholder={t('analysis_search')}
           />
         </div>
       ) : (

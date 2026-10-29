@@ -471,12 +471,7 @@
     "analysis_open": "Open the full analysis",
     "analysis_no_report": "No report yet. Add one from the cases list.",
     "analysis_summary": "{checks, plural, one {# check} other {# checks}} from {notebooks, plural, one {# notebook} other {# notebooks}}. A check with no notebook still needs research.",
-    "analysis_search": "Search the checks",
-    "analysis_col_said": "The platform said",
-    "analysis_col_result": "Result",
-    "analysis_col_chain": "The chain shows",
-    "analysis_col_notebooks": "Notebooks",
-    "analysis_none": "No notebook yet"
+    "analysis_search": "Search the checks"
   },
   "CaseDetail": {
     "meta_title": "Case",
@@ -669,6 +664,8 @@
     "version_value": "{version}, saved {date}",
     "disclaimer": "This report states what the chain shows and what it does not. It declares no fraud: a court decides intent.",
     "tests_label": "Analysis report",
+    "proof_label": "Proof",
+    "tests_none": "No test yet",
     "tests_title": "Tests and their output",
     "no_table": "This test has no table."
   },

@@ -5,17 +5,8 @@ import { ResultBadge } from '@/components/cases/ResultBadge';
 import { DataTable } from '@/components/data-table/DataTable';
 import { createAppColumnHelper } from '@/components/data-table/table';
 import { Link } from '@/libs/I18nNavigation';
-import type { CheckResult } from '@/validations/ReportValidation';
-
-/** One check of a report as a row: what the platform said, the result, what the chain shows and the tests that back it. */
-export type CheckRow = {
-  id: string;
-  claim: string;
-  result: CheckResult;
-  evidence: string;
-  /** The tests that back it. A link starting with `#` is on the same page. */
-  tests: { id: string; title: string; href: string }[];
-};
+import type { CheckRow } from '@/utils/cases/ReportChecks';
+import { checkResults } from '@/validations/ReportValidation';
 
 const linkClass =
   'text-sm font-medium underline underline-offset-4 focus-ring hover:text-ink-muted';
@@ -27,8 +18,10 @@ function Heading(props: { id: 'claim' | 'result' | 'evidence' | 'tests' }) {
 }
 
 function TestLinks(props: { tests: CheckRow['tests'] }) {
+  const t = useTranslations('Report');
+
   if (props.tests.length === 0) {
-    return <span className="text-ink-muted">—</span>;
+    return <span className="text-ink-muted">{t('tests_none')}</span>;
   }
 
   return (
@@ -62,6 +55,7 @@ const columns = helper.columns([
     id: 'result',
     header: () => <Heading id="result" />,
     cell: ({ getValue }) => <ResultBadge result={getValue()} />,
+    filterFn: 'inSet',
   }),
   helper.accessor('evidence', {
     id: 'evidence',
@@ -78,20 +72,40 @@ const columns = helper.columns([
 
 /**
  * What a report checked, as one table: a row for each thing the platform said, with the result, what the chain shows, the tests in
- * Celia that back it. The columns are fixed, so it is the app's own table, sortable by result.
+ * Celia that back it and any proof outside Celia. The case page and the staff view both use it. The columns are fixed, so it is the
+ * app's own table, sortable by result. With a search placeholder it also gets search and a filter on the result.
  * @param props - The table props.
  * @param props.rows - The checks.
+ * @param props.searchPlaceholder - Turns on the search and the result filter, for a long list of checks.
  * @returns The table.
  */
-export function CheckTable(props: { rows: CheckRow[] }) {
+export function CheckTable(props: { rows: CheckRow[]; searchPlaceholder?: string }) {
+  const t = useTranslations('Report');
+  const searchable = props.searchPlaceholder !== undefined;
+
   return (
     <DataTable
       columns={columns}
       data={props.rows}
       getRowId={(row) => row.id}
-      toolbar={false}
-      pagination={false}
-      pageSize={20}
+      toolbar={searchable}
+      pagination={searchable}
+      pageSize={searchable ? 25 : 20}
+      searchPlaceholder={props.searchPlaceholder}
+      labels={{
+        claim: t('claim_label'),
+        result: t('result_label'),
+        evidence: t('evidence_label'),
+        tests: t('tests_label'),
+        proof: t('proof_label'),
+      }}
+      filters={[
+        {
+          columnId: 'result',
+          title: t('result_label'),
+          options: checkResults.map((value) => ({ value, label: t(`result_${value}`) })),
+        },
+      ]}
     />
   );
 }
