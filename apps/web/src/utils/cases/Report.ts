@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { NewReportValidation } from '@/validations/ReportValidation';
 import type { Report } from '@/validations/ReportValidation';
 
 /**
@@ -76,4 +77,35 @@ export function describeCase(report: Report) {
   }
 
   return lines.length > 0 ? lines.join('\n\n') : null;
+}
+
+/**
+ * Checks findings against what a new report must satisfy: the report format, the house language, a table for every test and a
+ * loss that can be read as dollars. The loss decides when a case starts building evidence, so a report that gives none is refused,
+ * not saved with no effect.
+ * @param json - The findings as parsed JSON.
+ * @returns The report, or the problem: `schema`, `words`, `table` (a test has no table) or `loss`.
+ */
+export function readNewReport(
+  json: unknown,
+): { report: Report } | { problem: 'schema' | 'words' | 'table' | 'loss' } {
+  const parsed = NewReportValidation.safeParse(json);
+
+  if (!parsed.success) {
+    const messages = new Set(parsed.error.issues.map((issue) => issue.message));
+
+    if (messages.has('forbidden_words')) {
+      return { problem: 'words' };
+    }
+
+    return { problem: messages.has('table_required') ? 'table' : 'schema' };
+  }
+
+  const { estimate } = parsed.data;
+
+  if (estimate && (estimate.lossUsd ?? parseDollars(estimate.losses)) === null) {
+    return { problem: 'loss' };
+  }
+
+  return { report: parsed.data };
 }

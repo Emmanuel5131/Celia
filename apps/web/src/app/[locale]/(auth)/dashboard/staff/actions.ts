@@ -11,7 +11,7 @@ import { requireStaff } from '@/libs/accounts/Staff';
 import { recordStaffAction, staffActor } from '@/libs/accounts/StaffAudit';
 import { recordCaseEvent } from '@/libs/cases/CaseEvents';
 import { addConfirmedClaim } from '@/libs/cases/Cases';
-import { saveReport } from '@/libs/cases/Reports';
+import { saveCheckedReport } from '@/libs/cases/Reports';
 import { signalsFor } from '@/libs/claims/Signals';
 import { db } from '@/libs/DB';
 import { Env } from '@/libs/Env';
@@ -29,8 +29,7 @@ import {
 import { parseAccount } from '@/utils/accounts/Account';
 import { approvalRefusal, reviewChecks } from '@/utils/accounts/Institution';
 import { caseStatuses } from '@/utils/cases/Case';
-import { hashReport, parseDollars } from '@/utils/cases/Report';
-import { forbiddenWords, NewReportValidation } from '@/validations/ReportValidation';
+import { forbiddenWords } from '@/validations/ReportValidation';
 
 // Notes on who is alleged to have run a platform. The house language applies: they record what is alleged, they do not declare fraud.
 const CaseOperatorsValidation = z.object({
@@ -870,39 +869,12 @@ export async function saveCaseReport(caseId: string, formData: FormData) {
     return ['json'];
   }
 
-  const parsed = NewReportValidation.safeParse(json);
+  const problem = await saveCheckedReport({ caseId, json, actor: staffActor(user) });
 
-  if (!parsed.success) {
-    const messages = new Set(parsed.error.issues.map((issue) => issue.message));
-
-    if (messages.has('forbidden_words')) {
-      return ['words'];
-    }
-
-    return messages.has('table_required') ? ['table'] : ['schema'];
+  if (problem) {
+    return [problem];
   }
 
-  // The loss decides when a case starts building evidence, so a report that gives none that can be read is refused, not saved
-  // with no effect.
-  const { estimate } = parsed.data;
-
-  if (estimate && (estimate.lossUsd ?? parseDollars(estimate.losses)) === null) {
-    return ['loss'];
-  }
-
-  await saveReport({
-    caseId,
-    snapshot: parsed.data,
-    hash: hashReport(parsed.data),
-    savedBy: user.id,
-    record: async (tx) => {
-      await recordStaffAction(tx, {
-        actor: staffActor(user),
-        action: 'report_saved',
-        target: { type: 'case', id: caseId },
-      });
-    },
-  });
   revalidatePath('/', 'layout');
 
   return [];

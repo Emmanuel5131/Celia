@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NewReportValidation, ReportValidation } from '@/validations/ReportValidation';
-import { canonicalJson, describeCase, hashReport, parseDollars } from './Report';
+import { canonicalJson, describeCase, hashReport, parseDollars, readNewReport } from './Report';
 
 const report = {
   version: 1,
@@ -228,5 +228,33 @@ describe(parseDollars, () => {
 
   it.each(['12 ETH', 'a lot', '', undefined])('does not guess at %s', (text) => {
     expect(parseDollars(text)).toBeNull();
+  });
+});
+
+describe(readNewReport, () => {
+  it('returns the report when it satisfies the format', () => {
+    expect(readNewReport(report)).toStrictEqual({ report });
+  });
+
+  it('refuses words that declare fraud', () => {
+    expect(readNewReport({ ...report, headline: 'This platform is a scam.' })).toStrictEqual({
+      problem: 'words',
+    });
+  });
+
+  it('refuses a test with no table', () => {
+    const { columns: _columns, rows: _rows, ...bare } = report.tests[0] ?? {};
+
+    expect(readNewReport({ ...report, tests: [bare] })).toStrictEqual({ problem: 'table' });
+  });
+
+  it('refuses an estimate with no readable dollar amount', () => {
+    expect(
+      readNewReport({ ...report, estimate: { wallets: '142', losses: '12,000 SOL' } }),
+    ).toStrictEqual({ problem: 'loss' });
+  });
+
+  it('refuses anything that is not a report', () => {
+    expect(readNewReport({ headline: 'Hello' })).toStrictEqual({ problem: 'schema' });
   });
 });

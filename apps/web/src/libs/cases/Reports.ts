@@ -1,9 +1,10 @@
 import { desc, eq, sql } from 'drizzle-orm';
+import { recordStaffAction } from '@/libs/accounts/StaffAudit';
 import { recordCaseEvent } from '@/libs/cases/CaseEvents';
 import { advanceCase } from '@/libs/cases/Cases';
 import { db } from '@/libs/DB';
 import { caseReportSchema, caseSchema } from '@/models/Schema';
-import { describeCase, parseDollars } from '@/utils/cases/Report';
+import { describeCase, hashReport, parseDollars, readNewReport } from '@/utils/cases/Report';
 import { ReportValidation } from '@/validations/ReportValidation';
 import type { Report } from '@/validations/ReportValidation';
 
@@ -86,7 +87,7 @@ export async function listReportVersions(caseId: string): Promise<ReportVersion[
  * @param options.record - Written in the same transaction, such as the staff audit row, so the save and its record stand or fall
  *   together.
  */
-export async function saveReport(options: {
+async function saveReport(options: {
   caseId: string;
   snapshot: Report;
   hash: string;
@@ -116,4 +117,44 @@ export async function saveReport(options: {
     await recordCaseEvent(tx, options.caseId, 'report_saved');
     await options.record?.(tx);
   });
+}
+
+/**
+ * Checks findings and saves them as a new version of a case's report, with the staff audit row in the same transaction. The
+ * findings are checked here, whoever sends them, so the staff area and the MCP server hold a report to the same rules.
+ * @param options - What to save.
+ * @param options.caseId - The case id.
+ * @param options.json - The findings as parsed JSON.
+ * @param options.actor - The staff member saving.
+ * @param options.via - Where the save came from, kept in the audit row.
+ * @returns The problem found (see `readNewReport`), or null when saved.
+ */
+export async function saveCheckedReport(options: {
+  caseId: string;
+  json: unknown;
+  actor: { id: string; email: string | null };
+  via?: 'mcp';
+}) {
+  const checked = readNewReport(options.json);
+
+  if ('problem' in checked) {
+    return checked.problem;
+  }
+
+  await saveReport({
+    caseId: options.caseId,
+    snapshot: checked.report,
+    hash: hashReport(checked.report),
+    savedBy: options.actor.id,
+    record: async (tx) => {
+      await recordStaffAction(tx, {
+        actor: options.actor,
+        action: 'report_saved',
+        target: { type: 'case', id: options.caseId },
+        details: options.via ? { via: options.via } : undefined,
+      });
+    },
+  });
+
+  return null;
 }
