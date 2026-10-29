@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { platformKey } from '@celia/core';
 import { getJurisdiction } from '@celia/jurisdictions';
 import { createClerkClient } from '@clerk/nextjs/server';
-import { count as countRows, inArray, like, or, sql } from 'drizzle-orm';
+import { and, count as countRows, eq, inArray, isNotNull, like, or } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { Env } from '@/libs/Env';
 import {
@@ -17,6 +17,7 @@ import {
   userSettingSchema,
 } from '@/models/Schema';
 import type { CaseEventType } from '@/models/Schema';
+import { readyToBuild } from '@/utils/cases/Case';
 import type { CaseStatus } from '@/utils/cases/Case';
 import { describeCase, hashReport } from '@/utils/cases/Report';
 import { createDbConnection } from '@/utils/DBConnection';
@@ -479,22 +480,29 @@ for (const rows of chunks(events)) {
   await db.insert(caseEventSchema).values(rows);
 }
 
-// What the people on a case actually did decides its stage: a case with enough confirmed claims and a big enough estimated loss is
-// building evidence, whatever the plan above said.
-await db.execute(sql`
-  update "case" set status = 'building'
-  where status = 'collecting'
-    and estimated_loss_usd >= 1000
-    and (select count(*) from claim where claim.platform_key = "case".platform_key
-         and claim.status = 'submitted' and claim.validated_at is not null) >= 5
-`);
-await db.execute(sql`
-  update "case" set status = 'collecting'
-  where status = 'building'
-    and (estimated_loss_usd is null or estimated_loss_usd < 1000 or (select count(*) from claim
-         where claim.platform_key = "case".platform_key and claim.status = 'submitted'
-         and claim.validated_at is not null) < 5)
-`);
+// What the people on a case actually did decides its stage, by the same rule the app uses: enough confirmed claims and a big enough
+// estimated loss is building evidence, whatever the plan above said. Only cases that are not sealed move.
+const confirmedRows = await db
+  .select({ key: claimSchema.platformKey, total: countRows() })
+  .from(claimSchema)
+  .where(and(eq(claimSchema.status, 'submitted'), isNotNull(claimSchema.validatedAt)))
+  .groupBy(claimSchema.platformKey);
+const confirmed = new Map(confirmedRows.map((row) => [row.key, row.total]));
+const building = cases.filter(
+  (row) =>
+    row.status !== 'sealed' &&
+    readyToBuild(confirmed.get(row.platformKey) ?? 0, row.estimatedLossUsd ?? null),
+);
+const collecting = cases.filter((row) => row.status !== 'sealed' && !building.includes(row));
+
+for (const [status, group] of [
+  ['building', building],
+  ['collecting', collecting],
+] as const) {
+  for (const part of chunks(group.map((row) => row.id).filter((id) => id !== undefined))) {
+    await db.update(caseSchema).set({ status }).where(inArray(caseSchema.id, part));
+  }
+}
 
 const stages = await db
   .select({ status: caseSchema.status, total: countRows() })
