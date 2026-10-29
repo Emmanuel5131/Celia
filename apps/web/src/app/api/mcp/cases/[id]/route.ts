@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server';
 import * as z from 'zod';
 import { getCase, listAffectedCountries } from '@/libs/cases/Cases';
 import { getReport } from '@/libs/cases/Reports';
-import { identifyMcpCaller } from '@/libs/mcp/McpCaller';
+import { identifyMcpCaller, notFound, privateJson, unauthorized } from '@/libs/mcp/McpCaller';
 
 /**
  * One case for the MCP server: its summary, where its victims are as counts, who is alleged to have run the platform, and the
@@ -16,13 +15,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   if (!(await identifyMcpCaller())) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return unauthorized();
   }
 
   const found = z.uuid().safeParse(id).success ? await getCase(id) : undefined;
 
   if (!found) {
-    return new NextResponse('Not found', { status: 404 });
+    return notFound();
   }
 
   const { platformKey: _platformKey, ...summary } = found;
@@ -31,8 +30,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     found.hasReport ? getReport(found.id) : null,
   ]);
 
-  return NextResponse.json(
-    { ...summary, victimsByCountry: affected, reportHeadline: report?.snapshot.headline ?? null },
-    { headers: { 'Cache-Control': 'private, no-store' } },
-  );
+  return privateJson({
+    ...summary,
+    victimsByCountry: affected,
+    reportHeadline: report?.snapshot.headline ?? null,
+  });
 }

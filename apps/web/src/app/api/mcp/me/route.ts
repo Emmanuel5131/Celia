@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import { identifyMcpCaller } from '@/libs/mcp/McpCaller';
+import { identifyMcpCaller, privateJson, unauthorized } from '@/libs/mcp/McpCaller';
 
 /**
  * Tells the MCP server who is calling and what role they have. It is how the server learns a token is good without holding any
@@ -9,7 +8,5 @@ import { identifyMcpCaller } from '@/libs/mcp/McpCaller';
 export async function GET() {
   const caller = await identifyMcpCaller();
 
-  return caller
-    ? NextResponse.json(caller, { headers: { 'Cache-Control': 'private, no-store' } })
-    : new NextResponse('Unauthorized', { status: 401 });
+  return caller ? privateJson(caller) : unauthorized();
 }

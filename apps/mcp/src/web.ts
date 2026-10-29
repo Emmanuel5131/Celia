@@ -5,17 +5,27 @@ import type { Caller } from './auth.ts';
  * server only passes the question on and the answer back.
  * @param webUrl - The Celia web app.
  * @param caller - Who is calling.
- * @returns A function that reads one path as JSON.
+ * @returns A function that reads one path as JSON, or sends a body to it when it has one.
  */
 export function createWebClient(webUrl: string, caller: Caller) {
-  return async (path: string): Promise<unknown> => {
+  return async (path: string, send?: { body: unknown }): Promise<unknown> => {
     const response = await fetch(`${webUrl}${path}`, {
-      headers: { Authorization: `Bearer ${caller.token}` },
+      method: send ? 'POST' : 'GET',
+      headers: {
+        Authorization: `Bearer ${caller.token}`,
+        ...(send && { 'Content-Type': 'application/json' }),
+      },
+      body: send ? JSON.stringify(send.body) : undefined,
       signal: AbortSignal.timeout(15_000),
     });
 
     if (response.status === 404) {
       throw new Error('Not found');
+    }
+
+    // A refused report says what to fix, so the assistant can fix it.
+    if (response.status === 422) {
+      throw new Error(`Celia refused it: ${JSON.stringify(await response.json())}`);
     }
 
     if (!response.ok) {

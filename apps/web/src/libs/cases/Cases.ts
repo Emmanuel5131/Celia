@@ -168,6 +168,23 @@ export async function listAffectedCountries(caseId: string) {
 }
 
 /**
+ * The cases a lawyer's firm leads, in the order of the case bank.
+ * @param userId - The Clerk user id of the lead lawyer.
+ * @returns The cases.
+ */
+export async function listCasesLedBy(userId: string) {
+  const led = await db
+    .select({ caseId: caseTeamSchema.caseId })
+    .from(caseTeamSchema)
+    .where(and(eq(caseTeamSchema.userId, userId), eq(caseTeamSchema.role, 'lead')));
+  const ids = new Set(led.map((row) => row.caseId));
+
+  const cases = await listCases();
+
+  return cases.filter((row) => ids.has(row.id));
+}
+
+/**
  * Moves a case from collecting claims to building evidence when it has enough confirmed claims and a big enough estimated loss.
  * It never moves a case back or past building: the team marks enough evidence. Call it in the transaction of whatever changed the
  * claims or the estimate.

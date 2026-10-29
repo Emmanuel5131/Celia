@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
 import * as z from 'zod';
 import { getReport } from '@/libs/cases/Reports';
-import { identifyMcpCaller } from '@/libs/mcp/McpCaller';
+import { identifyMcpCaller, notFound, privateJson, unauthorized } from '@/libs/mcp/McpCaller';
 
 /**
  * The newest research report of a case for the MCP server: the findings with what is proven and what is not, the tests behind
@@ -15,14 +14,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   if (!(await identifyMcpCaller())) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return unauthorized();
   }
 
   const report = z.uuid().safeParse(id).success ? await getReport(id) : null;
 
   if (!report) {
-    return new NextResponse('Not found', { status: 404 });
+    return notFound();
   }
 
-  return NextResponse.json(report, { headers: { 'Cache-Control': 'private, no-store' } });
+  return privateJson(report);
 }

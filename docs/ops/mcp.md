@@ -10,19 +10,38 @@ server that is **stateless** (each request gets its own MCP server) and holds no
    Clerk's OAuth and comes back with a token.
 2. The MCP server asks the web app who the token belongs to (`GET /api/mcp/me`). The web app has Clerk check the OAuth token,
    then works out the role: `staff` (only if the person passes the same rules as the staff area), `counsel` or `person`.
-3. The role chooses the tool set (`apps/mcp/src/tools/index.ts`). Each tool calls a route under `/api/mcp/*` with the same token.
+3. The role chooses the tool set (`apps/mcp/src/tools/index.ts`). Each tool calls a route under `/api/mcp/*` with the same token, and
+   each route accepts only the roles it is for (`identifyMcpCallerWithRole`).
    **The web app decides what the person may see on every request**, so the MCP server can never show more than the app does.
 
-## Tools in this first version (read only)
+## Tools by role
 
-| Tool | Route | Who |
-|---|---|---|
-| `list_cases` | `GET /api/mcp/cases` | staff, counsel, person |
-| `get_case` | `GET /api/mcp/cases/:id` | staff, counsel, person |
-| `get_report` | `GET /api/mcp/cases/:id/report` | staff, counsel, person |
+The role comes from the person's account and decides which tools the assistant sees. The web app checks the role again on every
+route, so a tool that is not listed for a role is never reachable by it.
 
-They return the same summary the case bank shows: stage, victims and confirmed victims, where the victims are, the alleged
-operators and the report. **No claim, name, wallet or statement is ever returned.**
+| Tool | Route | staff | lawyer | person |
+|---|---|---|---|---|
+| `list_cases`, `get_case`, `get_report` | `/api/mcp/cases...` | yes | yes | yes |
+| `list_my_claims`, `get_my_claim` | `/api/mcp/my/claims...` | | | their own |
+| `list_my_cases` | `/api/mcp/firm/cases` | | cases their firm leads | |
+| `get_case_claims` | `/api/mcp/firm/cases/:id/claims` | | a case their firm leads | |
+| `staff_overview` | `/api/mcp/staff/overview` | yes | | |
+| `list_claims_to_review` | `/api/mcp/staff/claims` | yes | | |
+| `save_case_report` (**writes**) | `POST /api/mcp/staff/cases/:id/report` | yes | | |
+
+- **Case bank tools** return the same summary the case bank shows: stage, victims and confirmed victims, where the victims are, the
+  alleged operators and the report.
+- **A person** sees only their own claims, as the claims table shows them: no statement, nonce or signature.
+- **A lawyer** sees the claims of a case their firm leads: kind of loss, wallet, transaction, amount, country, whether the wallet is
+  signed and whether Celia confirmed it. **No name and no statement.** Passing wallet addresses to an assistant is a data-protection
+  choice: remove `registerFirmTools`'s `get_case_claims` if it should not be offered.
+- **Staff** see the queue counts and the claims waiting, without name, email, wallet address or proof files. Staff must pass the same
+  rules as the staff area (flag, allow list, two-step sign-in in production).
+- **`save_case_report` is the only tool that writes.** An agent researches (for example in a Sandworm notebook, which the report links
+  through `method.notebookUrl`) and a person validates: the tool says to show the findings to the staff member and save only after
+  they approve. The web app checks the findings with the same rules as the staff area (`saveCheckedReport`: report format, house
+  language, a table for every test, a readable loss), keeps earlier versions, and writes a `staff_audit` row with `via: mcp` in the
+  same transaction. A refused report comes back as 422 with the problem to fix.
 
 ## Setting it up
 
