@@ -5,37 +5,20 @@ import { services, servicesIntro } from '../data/home';
 ---
 <section id="method" class="section" aria-labelledby="services-title">
   <div class="container">
-    <SectionHeader id="services-title" align="split" leadBelow title={servicesIntro.title} lead={servicesIntro.lead} />
+    <SectionHeader id="services-title" align="split" leadBelow wideLead title={servicesIntro.title} lead={servicesIntro.lead} />
     <p class="source">Source: <a href={servicesIntro.source.href} rel="noopener">{servicesIntro.source.label}</a></p>
-  </div>
-  <div class="track scroll-x" tabindex="0" role="region" aria-label="The four services (scroll horizontally)" data-carousel>
-    <ul class="track__list" role="list" data-stagger data-axis="x" data-each=".12">
-      {services.map((s, i) => <li><ServiceCard id={`service-${s.slug}`} index={i + 1} kicker={s.kicker} title={s.title} text={s.description} art={s.art} tags={s.tags} /></li>)}
+    <ul class="cards" role="list" data-stagger data-each=".12" data-start="top 95%">
+      {services.map((s, i) => <li><ServiceCard id={`service-${s.slug}`} index={i + 1} kicker={s.kicker} title={s.title} text={s.description} art={s.art} tags={s.tags} link={s.link} /></li>)}
     </ul>
   </div>
 </section>
-<script>
-  // Mouse drag-to-scroll with momentum (touch/trackpad keep native scrolling).
-  const track = document.querySelector<HTMLElement>('[data-carousel]');
-  if (track && matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    let down = false, moved = false, startX = 0, startL = 0, v = 0, lastX = 0, raf = 0;
-    track.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') return; down = true; moved = false; startX = lastX = e.clientX; startL = track.scrollLeft; v = 0; cancelAnimationFrame(raf); });
-    window.addEventListener('pointermove', (e) => { if (!down) return; const dx = e.clientX - startX; if (Math.abs(dx) > 4) { moved = true; track.classList.add('is-drag'); } track.scrollLeft = startL - dx; v = e.clientX - lastX; lastX = e.clientX; });
-    window.addEventListener('pointerup', () => { if (!down) return; down = false;
-      const glide = () => { v *= 0.93; track.scrollLeft -= v; if (Math.abs(v) > 0.5) raf = requestAnimationFrame(glide); else track.classList.remove('is-drag'); };
-      if (moved) raf = requestAnimationFrame(glide); else track.classList.remove('is-drag'); });
-    track.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
-  }
-</script>
 <style>
   .source { margin-top: 24px; font-size: var(--fs-small); color: var(--brand-ink); max-width: 44rem; }
   .source a { text-decoration: underline; text-underline-offset: 3px; }
-  .track { scrollbar-width: none; }
-  .track::-webkit-scrollbar { display: none; }
-  .track { margin-top: 72px; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); cursor: grab; }
-  .track.is-drag { cursor: grabbing; scroll-snap-type: none; user-select: none; }
-  .track.is-drag :global(a) { pointer-events: none; }
-  .track__list > li { scroll-snap-align: start; }
-  .track__list { display: grid; grid-auto-flow: column; grid-auto-columns: min(369px, 86vw); gap: 16px; padding: 4px var(--gutter) 12px; width: max-content; }
-  .track:focus-visible { outline-offset: -2px; }
+  /* a wide row gap, so on a phone or a tablet one card's tags do not run into the next card's picture */
+  /* the cards sit on the page and scroll with it: one column on a phone, two on a tablet, all four on a desktop. Nothing scrolls sideways. */
+  .cards { margin-top: 72px; display: grid; grid-template-columns: 1fr; gap: 56px 16px; }
+  .cards > li { min-width: 0; }
+  @media (min-width: 700px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1200px) { .cards { grid-template-columns: repeat(4, 1fr); } }
 </style>

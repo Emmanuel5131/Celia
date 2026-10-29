@@ -4,24 +4,30 @@ import Lines from './ui/Lines.astro';
 import { audience } from '../data/home';
 ---
 <section class="section container" aria-label="Who Celia is for">
-  <div class="aud" data-stagger data-each=".14">
-    {audience.map((a) => (
-      <article id={a.id} class:list={['card', a.id === 'lawyers' && 'card--ink']}>
+  <div class="aud" data-stagger data-each=".14" data-start="top 98%">
+    {audience.map((a, i) => (
+      // victims are the one ink card; the professionals share the paper ones
+      <article id={a.id} class:list={['card', a.id === 'victims' && 'card--ink']}>
+        <span class="card__n" aria-hidden="true">0{i + 1}</span>
         <p class="card__label">{a.label}</p>
         <h2 class="card__title"><Lines text={a.title} /></h2>
         <p class="card__text">{a.text}</p>
         <ul class="card__points" role="list">{a.points.map((p) => <li>{p}</li>)}</ul>
-        <div class="card__cta"><Button href={a.cta.href} variant={a.id === 'lawyers' ? 'light' : 'solid'}>{a.cta.label}</Button></div>
+        <div class="card__cta"><Button href={a.cta.href} variant={a.id === 'victims' ? 'light' : 'solid'}>{a.cta.label}</Button></div>
       </article>
     ))}
   </div>
 </section>
 <style>
   .aud { display: grid; gap: 24px; }
-  .card { background: var(--cream); padding: 40px 32px; display: grid; gap: 20px; align-content: start; scroll-margin-top: 96px; transition: transform .7s cubic-bezier(.16,1,.3,1); }
+  .card { background: var(--cream); padding: 40px 32px; display: grid; gap: 20px; align-content: start; scroll-margin-top: 96px; position: relative; transition: transform .7s cubic-bezier(.16,1,.3,1); }
   .card:hover { transform: translateY(-6px); }
   .card--ink { background: var(--brand); color: var(--white); }
-  .card__label { font-size: var(--fs-small); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); display: inline-flex; align-items: center; gap: 12px; }
+  /* the label keeps clear of the number in the corner, so a long one wraps before it instead of running under it */
+  .card__label { padding-right: 40px; }
+  .card__n { position: absolute; top: 40px; right: 32px; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand-soft); }
+  .card--ink .card__n { color: var(--on-brand-muted); }
+  .card__label { font-size: var(--fs-small); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); display: inline-flex; align-items: baseline; gap: 12px; }
   .card__label::before { content: ''; width: 8px; height: 8px; background: currentColor; }
   .card--ink .card__label { color: var(--on-brand-muted); }
   .card__title { font-size: var(--fs-h3); line-height: var(--lh-tight); letter-spacing: var(--track-l); max-width: 18ch; }
@@ -39,8 +45,9 @@ import { audience } from '../data/home';
   /* two by two: the text row takes the slack, so the points and buttons line up along the bottom of each row */
   @media (min-width: 900px) {
     .aud { grid-template-columns: 1fr 1fr; }
+    .card__n { top: 56px; right: 48px; }
     .card { padding: 56px 48px; grid-template-rows: auto auto 1fr auto auto; }
     .card:last-child:nth-child(odd) { grid-column: 1 / -1; }
   }
-  @media (max-width: 600px) { .card { padding-left: var(--card-x-m); padding-right: var(--card-x-m); } }
+  @media (max-width: 600px) { .card { padding-left: var(--card-x-m); padding-right: var(--card-x-m); } .card__n { right: var(--card-x-m); } }
 </style>

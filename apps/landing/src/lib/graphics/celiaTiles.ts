@@ -4,7 +4,7 @@
  *   intake    what a victim submits (wallet, account of events, signature) and the claimants table the case bank builds from it
  *   evidence  the fixed tests as a chart: observed value against a threshold committed before the run, and the order of events
  *   file      the pooled claims in one evidence file (proven / not proven), and a certificate ring per jurisdiction
- *   access    the case bank (defrauded wallets and evidence) opened by a lawyer or a law firm
+ *   access    the case bank (defrauded wallets and evidence) opened by a lawyer, a law firm or an investigator's AI agent
  * Figures come from the anonymized Protocol P / App A case. The access tile is an illustration and says so.
  */
 import { f, arc } from './svg';
@@ -158,7 +158,7 @@ export const fileArt: Art = (W, H, c) => {
   return s;
 };
 
-/* ---------------------------------------------------------------- access: the case bank, opened by a lawyer or a law firm */
+/* ---------------------------------------------------------------- access: the case bank, opened by lawyers, firms and agents */
 export const accessArt: Art = (W, H, c) => {
   let s = grid(W, H, c, 16, 0.05) + corners(W, H, c, 12, 4);
   // the case bank: the wallets of those defrauded, and the evidence
@@ -175,16 +175,16 @@ export const accessArt: Art = (W, H, c) => {
     const y = 250 + i * 28, o = 2.2 + i * 0.3;
     s += `<g class="a-p" data-o="${f(o)}">${tick(54, y, 14, c)}</g>` + hook(T(72, y + 4, label, c, 10.5, 1, 'start', 500), 'a-t', o + 0.1);
   });
-  // lawyers and law firms open it
+  // lawyers, firms, agencies and AI agents open it
   s += hook(T(340, 128, 'connected', c, 9, 0.75, 'middle'), 'a-t', 3);
-  [['lawyer', 74], ['law firm', 198]].forEach(([who, y], i) => {
-    const o = 3.2 + i * 0.6, cy = Number(y) + 40;
-    s += `<rect class="a-d" data-o="${f(o)}" x="410" y="${y}" width="200" height="80" ${BG} stroke="${c}" stroke-opacity=".8"/>`;
-    s += hook(T(426, cy - 4, String(who), c, 11, 1, 'start', 500), 'a-t', o + 0.2) + hook(T(426, cy + 14, 'opens the evidence file', c, 9.5, 0.7), 'a-t', o + 0.3);
-    s += `<g class="a-p" data-o="${f(o + 0.5)}">${tick(584, cy, 16, c)}</g>`;
+  [['lawyer or law firm', 'opens the evidence file', 52], ['investigative agency', 'adds offchain findings', 140], ['AI agent', 'reads it through the MCP', 228]].forEach(([who, does, y], i) => {
+    const o = 3.2 + i * 0.45, cy = Number(y) + 33;
+    s += `<rect class="a-d" data-o="${f(o)}" x="410" y="${y}" width="200" height="66" ${BG} stroke="${c}" stroke-opacity=".8"/>`;
+    s += hook(T(426, cy - 4, String(who), c, 11, 1, 'start', 500), 'a-t', o + 0.2) + hook(T(426, cy + 14, String(does), c, 9.5, 0.7), 'a-t', o + 0.3);
+    s += `<g class="a-p" data-o="${f(o + 0.5)}">${tick(594, cy, 14, c)}</g>`;
     s += `<path class="a-d a-flow" data-o="${f(o - 0.2)}" d="M270 166C340 166 340 ${cy} 410 ${cy}" stroke="${c}" stroke-opacity=".7" stroke-dasharray="2 2"/>`;
   });
-  s += hook(T(30, 322, 'Celia holds wallets and evidence. Counsel runs the case.', c, 10, 0.95, 'start', 500), 'a-t', 5);
+  s += hook(T(30, 322, 'Celia holds wallets and evidence. They run the case.', c, 10, 0.95, 'start', 500), 'a-t', 5);
   s += hook(T(610, 40, 'illustration · placeholder addresses', c, 9, 0.6, 'end'), 'a-f', 5.2);
   return s;
 };

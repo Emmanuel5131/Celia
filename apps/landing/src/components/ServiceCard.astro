@@ -4,8 +4,8 @@ import TagList from './ui/TagList.astro';
 import { graphicSrc, serviceArtSize } from '../lib/graphics/registry';
 import { pad2 } from '../lib/text';
 import type { ServiceArt } from '../data/home';
-export interface Props { title: string; text: string; art: ServiceArt; kicker: string; tags: string[]; id: string; index: number }
-const { title, text, art, id, kicker, index, tags } = Astro.props;
+export interface Props { title: string; text: string; art: ServiceArt; kicker: string; tags: string[]; id: string; index: number; link?: { label: string; href: string } }
+const { title, text, art, id, kicker, index, tags, link } = Astro.props;
 const { W, H } = serviceArtSize();
 ---
 <article class="svc" id={id}>
@@ -19,7 +19,8 @@ const { W, H } = serviceArtSize();
     <p class="svc__cat">{pad2(index)} · {kicker}</p>
   </div>
   <p class="svc__text">{text}</p>
-  <TagList tags={tags} tone="light" label={`${title} deliverables`} />
+  {tags.length > 0 && <TagList tags={tags} tone="light" label={`${title} deliverables`} />}
+  {link && <p class="svc__linkrow"><a class="svc__link" href={link.href}>{link.label}</a></p>}
 </article>
 <style>
   .svc { position: relative; display: grid; gap: 16px; align-content: start; }
@@ -43,4 +44,7 @@ const { W, H } = serviceArtSize();
   .svc__cat { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand-ink); white-space: nowrap; }
   .svc__text { padding: 0 12px; font-size: .95rem; line-height: 1.55; color: var(--brand-ink); max-width: 56ch; }
   .svc :global(.tags) { padding: 0 12px; }
+  .svc__linkrow { padding: 0 12px; }
+  .svc__link { font-weight: 500; font-size: var(--fs-xs); line-height: 1.3; display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); background: var(--white); color: var(--brand); transition: border-color .3s ease; }
+  .svc__link:hover { border-color: var(--brand); }
 </style>

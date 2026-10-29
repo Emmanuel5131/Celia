@@ -11,7 +11,7 @@ import { appJoin, appLogin } from './app';
 export const hero = {
   eyebrow: 'Legal tech · onchain case bank for law firms, investigators and law enforcement',
   title: 'An open case bank\nfor crypto fraud.',
-  lead: 'We verify victims’ claims using onchain evidence and offchain records, bringing researchers, law firms, investigators, and law enforcement together to build credible crypto fraud cases.',
+  lead: 'We use AI agents to help verify victims’ claims against onchain evidence and offchain records, and people review every one. We build the base case that researchers, law firms, investigators, and law enforcement can use to build credible crypto fraud cases.',
   primary: { label: 'Get professional access', href: appJoin },
   secondary: { label: 'Report fraud', href: appLogin },
 };
@@ -71,12 +71,14 @@ export const heroFile: HeroFile = {
 export type ServiceArt = 'intake' | 'evidence' | 'file' | 'access';
 /** Section intro. The pattern is the most common one in the FBI's 2025 Internet Crime Report: investment fraud, $7.2B of US losses. */
 export const servicesIntro = {
-  title: 'One platform,\nmany victims,\none case.',
-  lead: 'The most common crypto loss is an investment platform that promises returns, takes deposits, then blocks withdrawals and asks for a fee. Each victim holds a small claim and a wallet address. Celia pools them, builds the evidence from the chain, and hands a lawyer one evidence file.',
+  title: 'One platform, many victims, one case.',
+  lead: 'The most common crypto loss is an investment platform that promises returns, takes deposits, then blocks withdrawals and asks for a fee. Celia pools the victims, builds the evidence from the chain, and hands lawyers, agencies and AI agents one evidence file.',
   source: { label: 'FBI Internet Crime Report 2025, investment fraud: $7.2B of reported US losses, the costliest category', href: 'https://www.hstoday.us/subject-matter-areas/cybersecurity/cryptocurrency-and-ai-scams-cost-u-s-almost-21-billion-in-2025-according-to-new-fbi-internet-crime-report/' },
 };
 export const services: {
   title: string; slug: string; kicker: string; description: string; tags: string[]; art: ServiceArt;
+  /** One small box under the text that links somewhere, used where tags would say too much. */
+  link?: { label: string; href: string };
 }[] = [
   {
     title: 'Claimant intake', slug: 'claimant-intake', art: 'intake',
@@ -94,13 +96,14 @@ export const services: {
     title: 'Court-ready file', slug: 'court-ready-file', art: 'file',
     kicker: 'Evidence file and certificate',
     description: 'One claim is rarely worth a lawyer’s time. Pooled by platform and jurisdiction, the claims become one case file, with an evidence certificate for the court.',
-    tags: ['Section 84 · NG', 'FRE 902 · US, in counsel review'],
+    tags: [],
+    link: { label: 'Check your jurisdiction →', href: '/jurisdictions/' },
   },
   {
-    title: 'Lawyer access', slug: 'lawyer-access', art: 'access',
+    title: 'Professional access', slug: 'lawyer-access', art: 'access',
     kicker: 'Victims already listed',
-    description: 'Lawyers and law firms open the case bank: the wallets of those defrauded and the evidence, ready to use. They never start by hunting for victims. Celia holds no funds, runs no cases and pays no one: counsel takes it from there.',
-    tags: ['Defrauded wallets', 'Gathered evidence', 'Ready for counsel'],
+    description: 'Lawyers, law firms, investigative agencies, researchers and law enforcement open the case bank, and so do the AI agents they work with through the MCP. They find the wallets of those defrauded and the evidence already listed, and never start by hunting for victims. Celia holds no funds, runs no cases and pays no one: they take it from there.',
+    tags: ['Lawyers and firms', 'Investigative agencies', 'Law enforcement', 'AI agents'],
   },
 ];
 
@@ -113,7 +116,7 @@ export const process = {
   },
   steps: [
     { title: 'Don’t be a lone victim', text: 'Join the others affected by the same platform. One claim is easy to ignore. Many together show a pattern.' },
-    { title: 'Report the fraud', text: 'Add your wallet and tell us what you were promised and what you lost. Ownership is proven by signing from the wallet.' },
+    { title: 'Report the fraud', text: 'Add your wallet and tell us what you were promised and what you lost. Ownership is proven by signing from the wallet. Where there is no onchain event, add screenshots instead; a person reviews them.' },
     { title: 'We create the case', text: 'Claims for the same platform are pooled into one case file: the wallets of those defrauded and the evidence gathered from the chain, with the method set before any data is touched.' },
     { title: 'We advertise the case', text: 'The case is listed in the case bank, so lawyers, law firms and researchers can find it and see what is proven and what is not.' },
     { title: 'The public case grows', text: 'Anyone can inspect the method and the chain evidence. Researchers review it, a lawyer or firm takes it to court. What you share stays private, shared only with the lawyer or firm.' },
@@ -142,7 +145,7 @@ export const audience = [
     id: 'lawyers',
     label: 'For lawyers and law firms',
     title: 'The file is built. What you do with it is yours to decide.',
-    text: 'Celia holds the wallets of those defrauded and the evidence, so you start with the list already built. Whether you are a solo lawyer or a firm, you decide whether to take the case and how to run it. Celia does not tell you what to do, and does not promise a result.',
+    text: 'Celia holds the wallets of those defrauded and the evidence, so you start with the list already built. Whether you are a solo lawyer or a firm, you decide whether to take the case and how to run it.',
     points: ['Pooled claimants by jurisdiction, with ownership proven', 'Gathered evidence and a certificate for your court', 'Evidence you can verify yourself'],
     cta: { label: 'Get professional access', href: appJoin },
   },
@@ -150,7 +153,7 @@ export const audience = [
     id: 'investigators',
     label: 'For investigative firms',
     title: 'Bring your findings to a file that is already built.',
-    text: 'Celia holds the wallets of those defrauded and the evidence gathered from the chain, so you start from verified claims instead of a blank page. Add what the chain cannot show, such as the entities, the promises and the offchain records, and hand it to counsel in one file. Celia does not direct your work, and does not promise a result.',
+    text: 'Celia holds the wallets of those defrauded and the evidence gathered from the chain, so you start from verified claims instead of a blank page. Add what the chain cannot show, such as the entities, the promises and the offchain records, and hand it to counsel in one file.',
     points: ['Verified claims and wallets, pooled by platform', 'Onchain evidence open to your own checks', 'Your offchain findings added to the same file'],
     cta: { label: 'Join as an investigator', href: appJoin },
   },
@@ -158,7 +161,7 @@ export const audience = [
     id: 'law-enforcement',
     label: 'For law enforcement',
     title: 'Receive a case that is already documented.',
-    text: 'When a case has enough evidence, Celia can refer it to law enforcement, so you start from the wallets, the chain evidence and the method instead of separate complaints. Claimants’ details are shared only where they agreed. Celia does not direct your work, and does not promise that an investigation or a result follows.',
+    text: 'When a case has enough evidence, Celia can refer it to law enforcement, so you start from the wallets, the chain evidence and the method instead of separate complaints. Claimants’ details are shared only where they agreed.',
     points: ['Claims pooled by platform, with wallets listed', 'Onchain evidence open to your own checks', 'Claimant details only where the claimant agreed'],
     cta: { label: 'Join as law enforcement', href: appJoin },
   },
@@ -166,7 +169,7 @@ export const audience = [
 
 /** Who is welcome on the platform: everyone who can help turn a fraud into a case. */
 export const welcome = {
-  title: 'Everyone who can help\nis welcome.',
+  title: 'Everyone who can help is welcome.',
   lead: 'Celia is open to the people a case needs. Pick the part that fits you. Each one adds to the same file.',
   people: [
     { who: 'Victims', text: 'Add your wallet and a few lines of text. Your claim sits alongside others affected by the same platform, and what you share stays private.', cta: { label: 'Report fraud', href: appLogin } },

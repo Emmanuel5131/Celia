@@ -4,7 +4,7 @@
  *   data-split[="load"] [data-split-type="chars"]   masked line / character reveal
  *   data-scramble[="load"]                          monospace scramble-in for eyebrows / labels
  *   data-reveal[="load"] [data-delay]               fade + rise
- *   data-stagger[="load"] [data-axis="x"] [data-each] [data-delay]   children stagger in
+ *   data-stagger[="load"] [data-axis="x"] [data-each] [data-delay] [data-start]   children stagger in (`data-start` = when it starts, default `top 86%`; a larger % starts earlier)
  *   data-count                                      count-up of the number inside the text
  *   data-clip                                       clip-path reveal + inner image parallax
  *   data-parallax="0.1"                             scroll parallax (yPercent)
@@ -130,7 +130,7 @@ function init() {
     const kids = Array.from(wrap.children);
     gsap.fromTo(kids, { autoAlpha: 0, x: x ? 90 : 0, y: x ? 0 : 46 }, {
       autoAlpha: 1, x: 0, y: 0, duration: 1.2, ease: EASE, stagger: +(wrap.dataset.each ?? 0.09),
-      delay: load ? +(wrap.dataset.delay ?? 0.45) : 0, scrollTrigger: load ? undefined : once(wrap, 'top 86%'), ...handoff(kids),
+      delay: load ? +(wrap.dataset.delay ?? 0.45) : 0, scrollTrigger: load ? undefined : once(wrap, wrap.dataset.start ?? 'top 86%'), ...handoff(kids),
     });
   });
 

@@ -22,6 +22,7 @@ const role = props.kind === 'victim' || props.kind === 'operator' ? undefined : 
 <g class="bd__f" style={`--d:${props.delay.toFixed(2)}s;--dur:${props.dur ?? 0.6}s`} transform={`translate(${props.x} ${props.y}) scale(${scale})`}>
   <g transform="translate(0 28)">
     {props.kind === 'celia' && <circle class="bd__fp bd__fp--halo" r="42" pathLength="1" />}
+    <circle class="bd__fp bd__fp--disc" r="34" />
     <circle class="bd__fp" r="34" pathLength="1" />
     <circle class:list={['bd__fp', props.kind === 'operator' ? 'bd__fp--solid' : 'bd__fp--head']} cx="0" cy="-8" r="11" pathLength="1" />
     <path class="bd__fp" d="M-22 25C-18 12-9 8 0 8C9 8 18 12 22 25" pathLength="1" />
@@ -55,9 +56,10 @@ const role = props.kind === 'victim' || props.kind === 'operator' ? undefined : 
   .bd .bd__f { --ease: cubic-bezier(.65, 0, .35, 1); }
   .bd .bd__fp { fill: none; stroke: var(--brand); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
   .bd .bd__fp--head { fill: var(--white); }
+  .bd .bd__fp--disc { fill: var(--white); stroke: none; stroke-dasharray: none; }
   .bd .bd__fp--solid { fill: var(--brand); }
   .bd .bd__fp--halo { stroke-width: 1.4; stroke-opacity: .45; }
   .bd .bd__fp--fill { fill: var(--brand); stroke: none; stroke-dasharray: none; }
   .bd.on .bd__fp { animation: bd-draw calc(var(--dur) * var(--slow)) var(--ease) calc(var(--d) * var(--slow)) both; }
-  .bd.on .bd__fp--fill { animation: bd-fade calc(var(--dur) * var(--slow)) ease calc(var(--d) * var(--slow)) both; }
+  .bd.on .bd__fp--fill, .bd.on .bd__fp--disc { animation: bd-fade calc(var(--dur) * var(--slow)) ease calc(var(--d) * var(--slow)) both; }
 </style>

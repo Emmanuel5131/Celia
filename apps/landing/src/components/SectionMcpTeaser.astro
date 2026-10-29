@@ -1,0 +1,31 @@
+---
+import SectionHeader from './ui/SectionHeader.astro';
+import Button from './ui/Button.astro';
+import { mcpTeaser } from '../data/mcp';
+---
+<section id="mcp" class="section container" aria-labelledby="mcp-teaser-title">
+  <SectionHeader id="mcp-teaser-title" align="split" leadBelow eyebrow={mcpTeaser.eyebrow} title={mcpTeaser.title} lead={mcpTeaser.lead}>
+    <Button href={mcpTeaser.cta.href} variant="outline">{mcpTeaser.cta.label}</Button>
+  </SectionHeader>
+  <ul class="roles" role="list" data-stagger data-each=".12">
+    {mcpTeaser.roles.map((r, i) => (
+      <li class="role">
+        <p class="role__n">0{i + 1}</p>
+        <h3 class="role__who">{r.who}</h3>
+        <p class="role__text">{r.text}</p>
+      </li>
+    ))}
+  </ul>
+</section>
+<style>
+  .roles { margin-top: 56px; display: grid; border-top: 1px solid var(--line); }
+  .role { padding: 36px 0 40px; border-bottom: 1px solid var(--line); display: grid; gap: 12px; align-content: start; }
+  .role__n { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand-ink); }
+  .role__who { font-size: var(--fs-h3); line-height: var(--lh-tight); letter-spacing: var(--track-l); }
+  .role__text { font-size: .95rem; line-height: 1.55; color: var(--brand-ink); max-width: 34ch; }
+  @media (min-width: 900px) {
+    .roles { grid-template-columns: repeat(3, 1fr); }
+    .role { padding: 48px 40px 56px; border-left: 1px solid var(--line); }
+    .role:first-child { padding-left: 0; border-left: 0; }
+  }
+</style>

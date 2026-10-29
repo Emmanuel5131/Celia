@@ -1,11 +1,11 @@
 ---
 /**
  * Section heading block. "split" = title left / lead right (desktop), "center" = centred,
- * "left" = stacked. Optional actions slot (e.g. a "See All" button).
+ * "left" = stacked. Optional actions slot (e.g. a "See All" button). `wideLead` lets the lead run the full width under the title.
  */
 import Lines from './Lines.astro';
-export interface Props { eyebrow?: string; title: string; lead?: string; align?: 'split' | 'center' | 'left'; id?: string; level?: 'h1' | 'h2'; onBrand?: boolean; leadBelow?: boolean; intro?: boolean }
-const { eyebrow, title, lead, align = 'split', id, level = 'h2', onBrand = false, leadBelow = false, intro = false } = Astro.props;
+export interface Props { eyebrow?: string; title: string; lead?: string; align?: 'split' | 'center' | 'left'; id?: string; level?: 'h1' | 'h2'; onBrand?: boolean; leadBelow?: boolean; intro?: boolean; wideLead?: boolean }
+const { eyebrow, title, lead, align = 'split', id, level = 'h2', onBrand = false, leadBelow = false, intro = false, wideLead = false } = Astro.props;
 const m = intro ? 'load' : '';
 const leadInMain = align !== 'split' || leadBelow;
 const Heading = level;
@@ -15,7 +15,7 @@ const hasActions = Astro.slots.has('default');
   <div class="sh__main">
     {eyebrow && <p class="eyebrow" data-scramble={m}>{eyebrow}</p>}
     <Heading id={id} class="h2 sh__title" data-split={m}><Lines text={title} /></Heading>
-    {leadInMain && lead && <p class="lead sh__lead" data-reveal={m} data-delay=".15">{lead}</p>}
+    {leadInMain && lead && <p class:list={['lead', 'sh__lead', wideLead && 'sh__lead--wide']} data-reveal={m} data-delay=".15">{lead}</p>}
   </div>
   {align === 'split' && ((lead && !leadInMain) || hasActions) && (
     <div class="sh__aside" data-reveal={m} data-delay=".2">
@@ -35,6 +35,7 @@ const hasActions = Astro.slots.has('default');
   .sh--center .sh__main { justify-items: center; gap: 16px; }
   .sh--center .sh__lead { max-width: 45rem; }
   .sh--split .sh__main .sh__lead { max-width: 39rem; margin-top: 8px; }
+  .sh--split .sh__main .sh__lead--wide { max-width: none; }
   .sh__actions { display: flex; gap: 12px; flex-wrap: wrap; }
   .sh--center .sh__actions { justify-content: center; }
   @media (min-width: 900px) {

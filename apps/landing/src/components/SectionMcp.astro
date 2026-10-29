@@ -19,6 +19,20 @@ const mailto = `mailto:${site.email}?subject=${encodeURIComponent(mcp.cta.subjec
     ))}
   </ul>
 
+  <div class="process">
+    <h2 class="process__title">{mcp.process.title}</h2>
+    <p class="process__lead">{mcp.process.lead}</p>
+    <ol class="process__steps" role="list">
+      {mcp.process.steps.map((step, i) => (
+        <li class="process__step">
+          <span class="feat__n">0{i + 1}</span>
+          <h3 class="feat__title">{step.title}</h3>
+          <p class="feat__text">{step.text}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+
   <div class="asks">
     <h2 class="asks__label">{mcp.asksLabel}</h2>
     <ul class="asks__list" role="list">{mcp.asks.map((a) => <li>{a}</li>)}</ul>
@@ -32,6 +46,11 @@ const mailto = `mailto:${site.email}?subject=${encodeURIComponent(mcp.cta.subjec
   .feat__n { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand-ink); }
   .feat__title { font-size: var(--fs-h3); line-height: var(--lh-tight); letter-spacing: var(--track-l); }
   .feat__text { font-size: .95rem; line-height: 1.55; color: var(--brand-ink); max-width: 34ch; }
+  .process { margin-top: 64px; display: grid; gap: 24px; }
+  .process__title { font-size: var(--fs-h2); line-height: var(--lh-tight); letter-spacing: var(--track-l); }
+  .process__lead { font-size: 1rem; line-height: 1.55; color: var(--brand-ink); max-width: 44rem; }
+  .process__steps { display: grid; border-top: 1px solid var(--line); }
+  .process__step { padding: 32px 0; border-bottom: 1px solid var(--line); display: grid; gap: 12px; align-content: start; }
   .asks { margin-top: 64px; padding: 40px 32px; background: var(--cream); display: grid; gap: 24px; }
   .asks__label { font-family: var(--font-body); font-weight: 500; font-size: var(--fs-small); letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); }
   .asks__list { display: grid; gap: 12px; }
@@ -42,6 +61,10 @@ const mailto = `mailto:${site.email}?subject=${encodeURIComponent(mcp.cta.subjec
     .feats { grid-template-columns: repeat(4, 1fr); }
     .feat { padding: 48px 32px 56px; border-left: 1px solid var(--line); }
     .feat:first-child { padding-left: 0; border-left: 0; }
+    .process__steps { grid-template-columns: repeat(3, 1fr); }
+    .process__step { padding: 40px 32px; }
+    .process__step + .process__step { border-left: 1px solid var(--line); }
+    .process__step:first-child { padding-left: 0; }
     .asks { padding: 48px; }
     .asks__list { grid-template-columns: 1fr 1fr; gap: 16px 32px; }
   }

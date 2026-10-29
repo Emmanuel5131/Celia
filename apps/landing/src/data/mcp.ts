@@ -13,6 +13,15 @@ export const mcp = {
     { title: 'Evidence rules', text: 'Look up the rule that decides whether electronic evidence is accepted in a jurisdiction, with the research notes behind it.' },
     { title: 'Reports only', text: 'No victim names, wallets or statements. What victims share stays private, shared only with the lawyer or firm on the case.' },
   ],
+  process: {
+    title: 'From claim to case.',
+    lead: 'We use AI agents to help verify victims’ claims against onchain evidence and offchain records, and people review every one. We build the base case that researchers, law firms, investigators, and law enforcement can use to build credible crypto fraud cases.',
+    steps: [
+      { title: 'Victims send claims', text: 'People tell us what happened and prove the wallet is theirs. A claim stays alleged until it is verified.' },
+      { title: 'An agent and a person verify', text: 'An AI agent helps check each claim against onchain evidence and offchain records. A person at Celia reviews everything and confirms it. The agent never confirms a claim.' },
+      { title: 'Everyone builds the case', text: 'Confirmed claims are pooled into one base case. Researchers, law firms, investigators and law enforcement start from it and build on the same verified evidence.' },
+    ],
+  },
   asksLabel: 'Questions you can ask',
   asks: [
     'What does the report say about this platform?',
@@ -21,4 +30,17 @@ export const mcp = {
     'Which rule decides electronic evidence in New York?',
   ],
   note: 'Reports describe what the chain shows. They declare no fraud: a court decides intent. These are research notes, not legal advice.',
+};
+
+/** The short MCP section on the homepage. It says who gets what; the MCP page has the rest. */
+export const mcpTeaser = {
+  eyebrow: 'MCP',
+  title: 'The case bank,\nin your AI assistant.',
+  lead: 'Connect an AI assistant to Celia. It reads the case bank, helps research a case and drafts the findings. People at Celia review and confirm everything.',
+  roles: [
+    { who: 'People who lost money', text: 'Ask about your own claims: what you sent and whether Celia has confirmed it.' },
+    { who: 'Law firms', text: 'Review the cases your firm leads and the claims in them, with no names and no statements.' },
+    { who: 'Celia staff', text: 'See what is waiting for review, and save a research report once a person has approved it.' },
+  ],
+  cta: { label: 'How the MCP works', href: '/mcp/' },
 };
