@@ -40,6 +40,19 @@ export const Env = createEnv({
     OPENSANCTIONS_API_KEY: z.string().min(1).optional(),
     /** OpenCorporates, for the company registry lookup on an application. Without it the lookup shows as not set up. */
     OPENCORPORATES_API_TOKEN: z.string().min(1).optional(),
+    /** The Sandworm MCP that staff research runs on. */
+    SANDWORM_MCP_URL: z.url().default('https://mcp.sandwormlab.xyz/mcp'),
+    /** Celia's client id at Sandworm, from the one-time registration in `docs/ops/sandworm.md`. Without it staff cannot connect Sandworm. */
+    SANDWORM_CLIENT_ID: z.string().min(1).optional(),
+    /** The id of the shared Celia workspace in Sandworm. Every call is sent to it, whatever workspace the staff member used last. */
+    SANDWORM_WORKSPACE_ID: z.string().min(1).optional(),
+    /** Seals each staff member's Sandworm login in the database: 32 random bytes in base64 (`openssl rand -base64 32`). */
+    SANDWORM_TOKEN_KEY: z
+      .string()
+      .refine((key) => Buffer.from(key, 'base64').length === 32, {
+        message: 'Must be 32 bytes in base64',
+      })
+      .optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().optional(),
@@ -79,6 +92,10 @@ export const Env = createEnv({
     INSTITUTION_PRICE: process.env.INSTITUTION_PRICE,
     OPENSANCTIONS_API_KEY: process.env.OPENSANCTIONS_API_KEY,
     OPENCORPORATES_API_TOKEN: process.env.OPENCORPORATES_API_TOKEN,
+    SANDWORM_MCP_URL: process.env.SANDWORM_MCP_URL,
+    SANDWORM_CLIENT_ID: process.env.SANDWORM_CLIENT_ID,
+    SANDWORM_WORKSPACE_ID: process.env.SANDWORM_WORKSPACE_ID,
+    SANDWORM_TOKEN_KEY: process.env.SANDWORM_TOKEN_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_LOGGING_LEVEL: process.env.NEXT_PUBLIC_LOGGING_LEVEL,

@@ -23,8 +23,9 @@ export function createWebClient(webUrl: string, caller: Caller) {
       throw new Error('Not found');
     }
 
-    // A refused report says what to fix, so the assistant can fix it.
-    if (response.status === 422) {
+    // A refused report or call says what to fix, so the assistant can fix it or tell the staff member what to do (for example
+    // 409: connect Sandworm; 503: Sandworm is not set up).
+    if (response.status === 422 || response.status === 409 || response.status === 503) {
       throw new Error(`Celia refused it: ${JSON.stringify(await response.json())}`);
     }
 

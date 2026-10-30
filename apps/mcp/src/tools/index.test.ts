@@ -32,9 +32,17 @@ describe(registerTools, () => {
     );
   });
 
-  it('gives staff the case bank, the review queues and report saving', async () => {
+  it('gives staff the case bank, the review queues, Sandworm and report saving', async () => {
     expect(await toolNames('staff')).toStrictEqual(
-      [...caseTools, 'list_claims_to_review', 'save_case_report', 'staff_overview'].toSorted(),
+      [
+        ...caseTools,
+        'get_report_format',
+        'list_claims_to_review',
+        'sandworm_call',
+        'sandworm_list_tools',
+        'save_case_report',
+        'staff_overview',
+      ].toSorted(),
     );
   });
 });

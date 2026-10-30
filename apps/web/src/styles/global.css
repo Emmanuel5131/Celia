@@ -237,3 +237,54 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* The email and password fields of Clerk's sign-in and sign-up forms carry an icon on the left (Phosphor envelope and lock). The icon is
+   a mask filled with a token, so it follows light and dark mode. It sits on the wrapper that ends at the input, so it stays centred
+   on the field whatever is shown above or below. The input's left padding makes room for it (see `ClerkAppearance`). */
+@layer components {
+  :is(.cl-formField__identifier, .cl-formField__emailAddress, .cl-formField__password)
+    > div:first-child {
+    position: relative;
+  }
+
+  :is(.cl-formField__identifier, .cl-formField__emailAddress, .cl-formField__password)
+    > div:first-child::after {
+    content: '';
+    position: absolute;
+    bottom: calc((var(--control-md) - 1.25rem) / 2);
+    left: 0.75rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--color-ink-muted);
+    pointer-events: none;
+    -webkit-mask: var(--auth-icon) center / contain no-repeat;
+    mask: var(--auth-icon) center / contain no-repeat;
+  }
+
+  :is(.cl-formField__identifier, .cl-formField__emailAddress) > div:first-child {
+    --auth-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z'/%3E%3C/svg%3E");
+  }
+
+  .cl-formField__password > div:first-child {
+    --auth-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z'/%3E%3C/svg%3E");
+  }
+}
+
+/* The organization logo in Clerk's form: a slightly rounded square with a light border, and a label that matches the other fields. */
+@layer components {
+  .cl-organizationAvatarUploaderContainer > p {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+
+  .cl-organizationAvatarUploaderContainer .cl-avatarBox {
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+  }
+
+  .cl-organizationAvatarUploaderContainer .cl-avatarImage {
+    border-radius: 0;
+  }
+}

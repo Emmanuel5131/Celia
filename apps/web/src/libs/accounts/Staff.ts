@@ -66,6 +66,17 @@ export async function requireStaff(options?: { twoFactor?: boolean }) {
 }
 
 /**
+ * Finds the signed-in staff member for a route handler, which cannot send anyone to the two-step page the way a page can. Anyone
+ * who does not pass every staff rule is simply not staff here.
+ * @returns The staff member, or null.
+ */
+export async function currentStaff() {
+  const user = await currentUser();
+
+  return user && staffDecision(user) === 'allowed' ? user : null;
+}
+
+/**
  * Lists the oldest sent claims waiting for staff to validate, with who to write to about each one, the reasons to look closer at
  * it and the video or files the person added to show the wallet is theirs. The name and email come from Clerk and are only for staff.
  * @returns The claims waiting.

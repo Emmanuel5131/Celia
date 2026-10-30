@@ -8,10 +8,11 @@ import {
   GearSixIcon,
   GlobeHemisphereWestIcon,
   IdentificationBadgeIcon,
+  PlugsConnectedIcon,
   ShieldCheckIcon,
   SquaresFourIcon,
 } from '@phosphor-icons/react';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import { Logo } from '@/components/brand/Logo';
 import { LogoMark } from '@/components/brand/LogoMark';
 import type { NavId } from '@/components/shell/nav';
@@ -43,6 +44,7 @@ const icons = {
   staffClaims: FilesIcon,
   staffCases: BankIcon,
   staffMail: EnvelopeSimpleIcon,
+  staffSandworm: PlugsConnectedIcon,
   staffActivity: ClockCounterClockwiseIcon,
 } as const;
 
@@ -61,6 +63,7 @@ export function AppSidebar(props: {
   signOut: React.ReactNode;
 }) {
   const t = useTranslations('AppShell');
+  const format = useFormatter();
   const pathname = usePathname();
   const labels: Record<NavId, string> = {
     overview: t('nav_overview'),
@@ -73,6 +76,7 @@ export function AppSidebar(props: {
     staffClaims: t('nav_staff_claims'),
     staffCases: t('nav_staff_cases'),
     staffMail: t('nav_staff_mail'),
+    staffSandworm: t('nav_staff_sandworm'),
     staffActivity: t('nav_staff_activity'),
   };
 
@@ -118,7 +122,7 @@ export function AppSidebar(props: {
                     </SidebarMenuButton>
                     {waiting > 0 && (
                       <SidebarMenuBadge className="peer-data-[size=default]/menu-button:top-1/2 peer-data-[size=default]/menu-button:-translate-y-1/2">
-                        {waiting}
+                        {format.number(waiting)}
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>

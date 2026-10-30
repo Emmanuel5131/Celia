@@ -17,7 +17,9 @@ const buttonVariants = cva(
         outline:
           'border-ink bg-surface text-ink hover:bg-ink hover:text-on-ink aria-expanded:bg-ink aria-expanded:text-on-ink',
         secondary: 'border-transparent bg-paper text-ink hover:bg-paper-sunken',
-        ghost: 'border-transparent bg-transparent text-ink hover:bg-paper aria-expanded:bg-paper',
+        // A faint tint of the ink on hover and a deeper one while pressed: no warm fill, and the label never moves.
+        ghost:
+          'border-transparent bg-transparent text-ink hover:bg-ink/6 active:bg-ink/10 aria-expanded:bg-ink/6',
         destructive: 'border-seal bg-surface text-seal hover:bg-seal hover:text-on-ink',
         link: 'h-auto rounded-none border-transparent px-0 text-ink underline underline-offset-4 hover:text-ink-muted',
       },

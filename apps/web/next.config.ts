@@ -17,6 +17,11 @@ const baseConfig: NextConfig = {
     agentUpgrade: 'security',
     // Three proof files of up to 4 MB each, with room for the form around them. Every other action sends far less.
     serverActions: { bodySizeLimit: '13mb' },
+    // The dev cache on disk (`.next/dev/cache`, 1 GB) is off on purpose: on a fresh start the dev server sometimes recompiled about
+    // once a second with no file changing, and every pass reloaded the page, until `.next` was deleted. Starting without the saved
+    // state costs a slower first compile. If a month of fresh starts never loops, the cache was the cause; if it still loops, put
+    // this back and look at Clerk (the sign-in route's catch-all check takes 9 to 17 s when Clerk answers slowly).
+    turbopackFileSystemCacheForDev: false,
     // `turbopackGc` is off on purpose: in Next 16.4 it collects tasks the HMR state still references, and the dev server
     // dies with "task is missing in memory or persistent storage". Turn it back on after upgrading Next.
     // Use the Rust version, instead of the OG Babel one

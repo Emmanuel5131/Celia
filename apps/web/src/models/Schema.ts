@@ -519,7 +519,31 @@ export type StaffAction =
   | 'application_lookup'
   | 'application_ready'
   | 'application_approved'
-  | 'application_rejected';
+  | 'application_rejected'
+  | 'sandworm_connected'
+  | 'sandworm_disconnected'
+  | 'sandworm_called';
+
+/**
+ * A staff member's sign-in to Sandworm, so Celia can call the Sandworm MCP as them. A refresh token is a full Sandworm login, so
+ * both tokens are sealed with `SANDWORM_TOKEN_KEY` and never leave the server. One row per person; disconnecting deletes it.
+ */
+export const sandwormConnectionSchema = pgTable('sandworm_connection', {
+  /** The Clerk user id of the staff member. */
+  userId: text('user_id').primaryKey(),
+  /** Sealed. Sandworm gives a new one with every refresh and each lives 7 days. */
+  refreshToken: text('refresh_token').notNull(),
+  /** Sealed. Kept so a call does not refresh every time; it lives 15 minutes. */
+  accessToken: text('access_token'),
+  accessExpiresAt: timestamp('access_expires_at', { mode: 'date', withTimezone: true }),
+  connectedAt: timestamp('connected_at', { mode: 'date', withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
 
 /**
  * The record of what staff did: who, what, to which thing and when. Rows are only ever added, never changed or removed by the

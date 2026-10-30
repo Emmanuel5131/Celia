@@ -17,6 +17,12 @@ export type ServerDeps = {
 const instructions =
   'Celia is a case bank: it stores what happened, who is alleged to have run a platform and what the chain shows. It does not declare fraud, because a court decides intent, and it holds no funds. Say what is proven and what is not proven, and call anything about people alleged.';
 
+// Staff do the research on Sandworm. The web app signs in to Sandworm as the staff member (they press Connect Sandworm in the staff
+// area once), so this server reaches it through sandworm_list_tools and sandworm_call, which add Celia's workspace, refuse
+// claimants' wallets and write the staff audit. A Sandworm MCP connected beside this one still works but has none of those checks.
+const staffInstructions =
+  'For research, use sandworm_list_tools and sandworm_call: build and run the analysis in a Sandworm notebook and publish it. Then read get_report_format, turn the results into findings and show them to the staff member. Call save_case_report only after they approve. Never put a claimant\'s name, wallet or statement into a notebook.';
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -106,7 +112,10 @@ export function createHttpServer(deps: ServerDeps): Server {
     }
 
     try {
-      const mcp = new McpServer({ name: 'celia', version: '0.1.0' }, { instructions });
+      const mcp = new McpServer(
+        { name: 'celia', version: '0.1.0' },
+        { instructions: caller.role === 'staff' ? `${instructions} ${staffInstructions}` : instructions },
+      );
       registerTools(mcp, { caller, webUrl: deps.webUrl });
 
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });

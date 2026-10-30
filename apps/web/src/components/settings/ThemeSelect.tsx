@@ -21,7 +21,7 @@ export function ThemeSelect() {
   const isClient = useIsClient();
 
   return (
-    <Select value={isClient ? (theme ?? 'system') : 'system'} onValueChange={setTheme}>
+    <Select value={isClient ? (theme ?? 'light') : 'light'} onValueChange={setTheme}>
       <SelectTrigger size="sm" className="w-36" aria-label={t('theme_title')}>
         <SelectValue />
       </SelectTrigger>

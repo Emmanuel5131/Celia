@@ -57,7 +57,7 @@ export function DataTableColumnHeader<TData extends RowData, TValue>(props: {
             {!sorted && <CaretUpDownIcon aria-hidden="true" />}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={props.align === 'end' ? 'end' : 'start'}>
+        <DropdownMenuContent align={props.align === 'end' ? 'end' : 'start'} className="min-w-48">
           <DropdownMenuItem
             onClick={() => {
               column.toggleSorting(false);

@@ -27,6 +27,9 @@ route, so a tool that is not listed for a role is never reachable by it.
 | `get_case_claims` | `/api/mcp/firm/cases/:id/claims` | | a case their firm leads | |
 | `staff_overview` | `/api/mcp/staff/overview` | yes | | |
 | `list_claims_to_review` | `/api/mcp/staff/claims` | yes | | |
+| `get_report_format` | `/api/mcp/staff/report-format` | yes | | |
+| `sandworm_list_tools` | `/api/mcp/staff/sandworm/tools` | yes | | |
+| `sandworm_call` (**writes**) | `POST /api/mcp/staff/sandworm/call` | yes | | |
 | `save_case_report` (**writes**) | `POST /api/mcp/staff/cases/:id/report` | yes | | |
 
 - **Case bank tools** return the same summary the case bank shows: stage, victims and confirmed victims, where the victims are, the
@@ -37,7 +40,10 @@ route, so a tool that is not listed for a role is never reachable by it.
   choice: remove `registerFirmTools`'s `get_case_claims` if it should not be offered.
 - **Staff** see the queue counts and the claims waiting, without name, email, wallet address or proof files. Staff must pass the same
   rules as the staff area (flag, allow list, two-step sign-in in production).
-- **`save_case_report` is the only tool that writes.** An agent researches (for example in a Sandworm notebook, which the report links
+- **Sandworm:** this server does not hold a Sandworm login. The web app does, one per staff member, sealed in its database: the
+  person presses Connect Sandworm in the staff area once, and `sandworm_call` then reaches the Sandworm MCP as them, in Celia's
+  workspace, with claimants' wallets refused and every call in the staff audit. Setup and limits: `sandworm.md`.
+- **`save_case_report` and `sandworm_call` write.** `save_case_report` is the only one that changes the case bank. An agent researches (for example in a Sandworm notebook, which the report links
   through `method.notebookUrl`) and a person validates: the tool says to show the findings to the staff member and save only after
   they approve. The web app checks the findings with the same rules as the staff area (`saveCheckedReport`: report format, house
   language, a table for every test, a readable loss), keeps earlier versions, and writes a `staff_audit` row with `via: mcp` in the

@@ -18,6 +18,7 @@ import { Env } from '@/libs/Env';
 import { notify } from '@/libs/notifications/Notify';
 import { claimantIds, verifiedCounselIds } from '@/libs/notifications/Recipients';
 import { unsuppress } from '@/libs/notifications/Suppression';
+import { deleteConnection } from '@/libs/sandworm/Connection';
 import {
   caseReportSchema,
   caseSchema,
@@ -840,6 +841,16 @@ export async function allowMail(email: string) {
   await unsuppress(email);
   // The address itself is a person's detail, so the record only says that an address was allowed.
   await recordStaffAction(db, { actor: staffActor(staff), action: 'mail_allowed' });
+  revalidatePath('/', 'layout');
+}
+
+/**
+ * Forgets the signed-in staff member's own Sandworm login. Each person can only disconnect themselves.
+ */
+export async function disconnectSandworm() {
+  const staff = await requireStaff();
+  await deleteConnection(staff.id);
+  await recordStaffAction(db, { actor: staffActor(staff), action: 'sandworm_disconnected' });
   revalidatePath('/', 'layout');
 }
 

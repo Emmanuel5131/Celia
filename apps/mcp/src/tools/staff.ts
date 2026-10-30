@@ -4,9 +4,10 @@ import type { WebClient } from '../web.ts';
 import { handle } from './shared.ts';
 
 /**
- * The tools for Celia staff: what is waiting in the review queues, and saving a case's research report. The queues are the same
- * counts and claims as the staff area, without any name, email, wallet address or proof file. The one tool that writes is
- * `save_case_report`, which the web app holds to the staff area's rules and records in the staff audit.
+ * The tools for Celia staff: what is waiting in the review queues, research on Sandworm, and saving a case's research report. The
+ * queues are the same counts and claims as the staff area, without any name, email, wallet address or proof file. The tools that
+ * write are `sandworm_call` and `save_case_report`, which the web app holds to the staff area's rules and records in the staff
+ * audit.
  * @param server - The MCP server.
  * @param web - Asks the Celia web app as the caller.
  */
@@ -28,6 +29,43 @@ export function registerStaffTools(server: McpServer, web: WebClient) {
       inputSchema: {},
     },
     handle(async () => await web('/api/mcp/staff/claims')),
+  );
+
+  server.registerTool(
+    'get_report_format',
+    {
+      description:
+        'The format a case report must have, as a JSON schema, with the rules the checks add. Read it before turning an analysis, such as a published Sandworm notebook, into findings for save_case_report.',
+      inputSchema: {},
+    },
+    handle(async () => await web('/api/mcp/staff/report-format')),
+  );
+
+  server.registerTool(
+    'sandworm_list_tools',
+    {
+      description:
+        "List the tools of the Sandworm MCP (notebooks, runs, results and so on) with their inputs. They run as the signed-in staff member in Celia's Sandworm workspace. If it says the staff member has not connected Sandworm, tell them to open Staff, Sandworm in Celia and press Connect Sandworm.",
+      inputSchema: {},
+    },
+    handle(async () => await web('/api/mcp/staff/sandworm/tools')),
+  );
+
+  server.registerTool(
+    'sandworm_call',
+    {
+      description:
+        "Call one Sandworm tool (named by sandworm_list_tools) as the signed-in staff member. Celia sends it to its own workspace, so leave workspaceId out. This can create notebooks and start runs, and Sandworm keeps the arguments and results in the notebook's chat; an attested notebook is public for good. So put public facts only in it: the platform's addresses, never a claimant's name, wallet or statement. Celia refuses a call that carries a claimant's wallet, and records every call in the staff audit.",
+      inputSchema: {
+        tool: z.string().describe('The Sandworm tool name from sandworm_list_tools'),
+        arguments: z
+          .record(z.string(), z.unknown())
+          .default({})
+          .describe("The tool's arguments, as sandworm_list_tools describes them"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    handle(async ({ tool, arguments: args }) => await web('/api/mcp/staff/sandworm/call', { body: { tool, arguments: args } })),
   );
 
   server.registerTool(

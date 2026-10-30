@@ -11,6 +11,7 @@ export type NavId =
   | 'staffClaims'
   | 'staffCases'
   | 'staffMail'
+  | 'staffSandworm'
   | 'staffActivity';
 
 export const navHref: Record<NavId, string> = {
@@ -24,6 +25,7 @@ export const navHref: Record<NavId, string> = {
   staffClaims: '/dashboard/staff/claims',
   staffCases: '/dashboard/staff/cases',
   staffMail: '/dashboard/staff/mail',
+  staffSandworm: '/dashboard/staff/sandworm',
   staffActivity: '/dashboard/staff/activity',
 };
 
@@ -46,6 +48,7 @@ export const staffNav: NavId[] = [
   'staffClaims',
   'staffCases',
   'staffMail',
+  'staffSandworm',
   'staffActivity',
 ];
 
