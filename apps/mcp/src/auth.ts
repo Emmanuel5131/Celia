@@ -11,6 +11,13 @@ export type Caller = {
   token: string;
 };
 
+/** The web app could not say who is calling, so the token is neither accepted nor refused. */
+export class IdentityUnavailableError extends Error {
+  constructor() {
+    super('Celia could not check who is calling');
+  }
+}
+
 export type Authenticator = (request: IncomingMessage) => Promise<Caller | null>;
 
 const IdentityValidation = z.object({
@@ -31,8 +38,8 @@ export function bearerToken(request: IncomingMessage) {
 
 /**
  * Builds the check of who is calling. The server holds no Clerk secret and no user data: it asks the web app, which verifies the
- * OAuth token with Clerk, finds the person's role and applies the same staff rules as the staff area. Anything but a clear yes
- * is treated as not signed in.
+ * OAuth token with Clerk, finds the person's role and applies the same staff rules as the staff area. A clear no, or an answer it
+ * cannot read, is not signed in; a web app that cannot answer throws `IdentityUnavailableError`.
  * @param webUrl - The Celia web app.
  * @returns The check.
  */
@@ -49,8 +56,14 @@ export function createAuthenticator(webUrl: string): Authenticator {
       signal: AbortSignal.timeout(5000),
     }).catch(() => null);
 
-    if (!response?.ok) {
+    // Only a clear no is "not signed in". A web app that is down or erroring says nothing about the token, and calling it a bad
+    // token would make the assistant ask the person to sign in again.
+    if (response?.status === 401 || response?.status === 403) {
       return null;
+    }
+
+    if (!response?.ok) {
+      throw new IdentityUnavailableError();
     }
 
     const identity = IdentityValidation.safeParse(await response.json());

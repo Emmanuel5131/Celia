@@ -32,10 +32,20 @@ export function registerCaseTools(server: McpServer, web: WebClient) {
   );
 
   server.registerTool(
+    'get_case_story',
+    {
+      description:
+        'The story of a case, as the case page tells it under "What may have happened": what claimants report (the most reported kind of loss, how many say it and how many staff have confirmed), how far it reaches (wallets that sent funds and the estimated total), and where the platform said one thing and the chain shows another. Counts and public findings only, no claimant is named. State it as the claimants\' accounts, never as fraud: a court decides.',
+      inputSchema: { caseId: z.uuid().describe('The case id from list_cases') },
+    },
+    handle(async ({ caseId }) => await web(`/api/mcp/cases/${caseId}/story`)),
+  );
+
+  server.registerTool(
     'get_report',
     {
       description:
-        'Read the newest research report of a case: what the chain shows, with each finding marked proven or not proven, and the tests behind it. It names no victim.',
+        'Read the research reports of a case. Each thing the platform said is researched on its own, so the answer is one entry for each statement: where its research stands and, once it has one, its newest report with the finding marked proven or not proven and the tests behind it. It names no victim.',
       inputSchema: { caseId: z.uuid().describe('The case id from list_cases') },
     },
     handle(async ({ caseId }) => await web(`/api/mcp/cases/${caseId}/report`)),

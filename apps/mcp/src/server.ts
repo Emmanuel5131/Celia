@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { IdentityUnavailableError } from './auth.ts';
 import type { Authenticator } from './auth.ts';
 import { registerTools } from './tools/index.ts';
 
@@ -47,15 +48,19 @@ function send(response: ServerResponse, status: number, body: unknown) {
   response.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
 }
 
+/** What a client asks Clerk for at sign-in. `offline_access` is what gets it a refresh token, so the sign-in lasts. */
+const scopes = ['openid', 'profile', 'email', 'offline_access'];
+
 /**
- * The HTTP server. It is stateless: every request gets its own MCP server and transport, so nothing is shared between callers.
+ * The request handler of the HTTP server, for a Node server or a serverless function alike. It is stateless: every request gets its
+ * own MCP server and transport, so nothing is shared between callers.
  * `/mcp` needs a Clerk OAuth token; a caller without one is told where to sign in, following RFC 9728, which is how an assistant
  * finds the sign-in on its own.
  * @param deps - The settings and the check of who is calling.
- * @returns The server, not yet listening.
+ * @returns The handler.
  */
-export function createHttpServer(deps: ServerDeps): Server {
-  return createServer(async (request, response) => {
+export function createRequestHandler(deps: ServerDeps) {
+  return async (request: IncomingMessage, response: ServerResponse) => {
     const path = (request.url ?? '').split('?')[0];
 
     // Browser-based clients, such as the inspector, need CORS. No cookies are used, so any origin is safe.
@@ -81,6 +86,7 @@ export function createHttpServer(deps: ServerDeps): Server {
         resource: deps.publicUrl,
         authorization_servers: [deps.authServerUrl],
         bearer_methods_supported: ['header'],
+        scopes_supported: scopes,
       });
     }
 
@@ -99,11 +105,24 @@ export function createHttpServer(deps: ServerDeps): Server {
       });
     }
 
-    const caller = await deps.authenticate(request);
+    const caller = await deps.authenticate(request).catch((error: unknown) => {
+      if (error instanceof IdentityUnavailableError) {
+        return undefined;
+      }
+
+      throw error;
+    });
+
+    if (caller === undefined) {
+      return send(response, 503, {
+        error: 'unavailable',
+        error_description: 'Celia could not check your sign-in just now. Your sign-in is still good.',
+      });
+    }
 
     if (!caller) {
       const metadata = new URL('/.well-known/oauth-protected-resource', deps.publicUrl).toString();
-      response.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadata}"`);
+      response.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadata}", scope="${scopes.join(' ')}"`);
 
       return send(response, 401, {
         error: 'unauthorized',
@@ -136,5 +155,14 @@ export function createHttpServer(deps: ServerDeps): Server {
         });
       }
     }
-  });
+  };
+}
+
+/**
+ * The HTTP server, for a host that runs a long-lived process.
+ * @param deps - The settings and the check of who is calling.
+ * @returns The server, not yet listening.
+ */
+export function createHttpServer(deps: ServerDeps): Server {
+  return createServer(createRequestHandler(deps));
 }

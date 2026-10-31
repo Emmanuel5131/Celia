@@ -4,6 +4,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(6790),
   /** This endpoint's public URL, which the sign-in server checks the token was issued for. */
   MCP_PUBLIC_URL: z.url().optional(),
+  /** The production domain Vercel gives the project, without a scheme. It stands in for `MCP_PUBLIC_URL` there. */
+  VERCEL_PROJECT_PRODUCTION_URL: z.string().min(1).optional(),
   /** The Clerk Frontend API URL: the issuer of the tokens, where an assistant signs in. */
   AUTH_SERVER_URL: z.url(),
   /** The Celia web app, which knows who is calling and holds the cases. */
@@ -38,7 +40,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   return {
     port: data.PORT,
-    publicUrl: data.MCP_PUBLIC_URL ?? `http://localhost:${data.PORT}/mcp`,
+    publicUrl:
+      data.MCP_PUBLIC_URL ??
+      (data.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${data.VERCEL_PROJECT_PRODUCTION_URL}/mcp`
+        : `http://localhost:${data.PORT}/mcp`),
     authServerUrl: data.AUTH_SERVER_URL.replace(/\/$/u, ''),
     webUrl: data.WEB_URL.replace(/\/$/u, ''),
   };

@@ -7,7 +7,10 @@ import { registerTools } from './index.ts';
 
 async function toolNames(role: Role) {
   const server = new McpServer({ name: 'test', version: '0.0.0' });
-  registerTools(server, { caller: { userId: 'user_1', role, token: 'token' }, webUrl: 'https://app.example.org' });
+  registerTools(server, {
+    caller: { userId: 'user_1', role, token: 'token' },
+    webUrl: 'https://app.example.org',
+  });
   const client = new Client({ name: 'test-client', version: '0.0.0' });
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
@@ -17,7 +20,7 @@ async function toolNames(role: Role) {
   return tools.map((tool) => tool.name).toSorted();
 }
 
-const caseTools = ['get_case', 'get_report', 'list_cases'];
+const caseTools = ['get_case', 'get_case_story', 'get_report', 'list_cases'];
 
 describe(registerTools, () => {
   it('gives a person the case bank and their own claims', async () => {
@@ -32,18 +35,60 @@ describe(registerTools, () => {
     );
   });
 
-  it('gives staff the case bank, the review queues, Sandworm and report saving', async () => {
+  it('gives staff the case bank, the review queues, plan previews, Sandworm, report saving and every change the staff area can make', async () => {
     expect(await toolNames('staff')).toStrictEqual(
       [
         ...caseTools,
         'get_analysis_brief',
+        'accept_claims',
+        'add_alleged_action',
+        'add_alleged_actor',
+        'add_evidence',
+        'add_statement',
+        'allow_mail',
+        'approve_analysis_brief',
+        'approve_application',
+        'decline_wallet_proof',
+        'disconnect_sandworm',
+        'get_case_claim_accounts',
+        'get_case_lists',
+        'mark_application_ready',
+        'reject_application',
+        'reject_claims',
+        'remove_alleged_action',
+        'remove_alleged_actor',
+        'remove_evidence',
+        'remove_statement',
+        'retry_mail',
+        'review_evidence',
+        'run_application_lookups',
+        'set_application_check',
+        'set_case_stage',
+        'start_claim_reviews',
+        'triage_claims',
+        'update_statement',
+        'update_evidence',
+        'update_alleged_actor',
+        'update_alleged_action',
         'get_analysis_contract',
         'get_report_format',
+        'list_claims',
         'list_claims_to_review',
         'sandworm_call',
         'sandworm_list_tools',
         'save_case_report',
         'staff_overview',
+        'preview_analysis_plan',
+        'list_applications',
+        'get_application',
+        'get_mail_status',
+        'get_staff_activity',
+        'sandworm_status',
+        'review_claims',
+        'get_report_drafts',
+        'review_case_report',
+        'start_evidence_upload',
+        'research_case_claims',
       ].toSorted(),
     );
   });

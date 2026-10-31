@@ -16,7 +16,8 @@ export function createWebClient(webUrl: string, caller: Caller) {
         ...(send && { 'Content-Type': 'application/json' }),
       },
       body: send ? JSON.stringify(send.body) : undefined,
-      signal: AbortSignal.timeout(15_000),
+      // A change can be slow, such as a triage that asks the chain about thousands of addresses.
+      signal: AbortSignal.timeout(send ? 300_000 : 15_000),
     });
 
     if (response.status === 404) {
