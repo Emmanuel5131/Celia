@@ -23,6 +23,9 @@ importers:
       '@commitlint/types':
         specifier: 21.2.0
         version: 21.2.0
+      '@neon/config':
+        specifier: ^1.10.0
+        version: 1.10.0
       lefthook:
         specifier: 2.1.10
         version: 2.1.10
@@ -112,9 +115,6 @@ importers:
       '@clerk/shared':
         specifier: 4.29.1
         version: 4.29.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@hookform/resolvers':
-        specifier: 5.9.1
-        version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.4.3)
       '@idswyft/sdk':
         specifier: ^4.0.0
         version: 4.0.0
@@ -196,9 +196,6 @@ importers:
       react-dom:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
-      react-hook-form:
-        specifier: 7.85.0
-        version: 7.85.0(react@19.2.8)
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.18)(react@19.2.8)
@@ -224,9 +221,6 @@ importers:
       '@electric-sql/pglite-socket':
         specifier: 0.2.8
         version: 0.2.8(@electric-sql/pglite-age@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pg_hashids@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pg_ivm@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pg_textsearch@0.0.7(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pg_uuidv7@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pgtap@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite-pgvector@0.0.6(@electric-sql/pglite@0.5.5))(@electric-sql/pglite@0.5.5)
-      '@faker-js/faker':
-        specifier: 10.6.0
-        version: 10.6.0
       '@lingual/i18n-check':
         specifier: 0.9.5
         version: 0.9.5
@@ -1657,10 +1651,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@faker-js/faker@10.6.0':
-    resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
-    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
-
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
 
@@ -1798,84 +1788,6 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: 4.12.31
-
-  '@hookform/resolvers@5.9.1':
-    resolution: {integrity: sha512-7b7vsbraJxKgjVSA1Nur9tLwj539WGJUBLA7QNvXnFoT2pM5Z7G+6rlukk4B2/QrTZy6huRtH6wKeESPKuIr6w==}
-    peerDependencies:
-      '@sinclair/typebox': '>=0.25.24'
-      '@standard-schema/spec': ^1.0.0
-      '@typeschema/main': '>=0.13.7'
-      '@vinejs/vine': ^2.0.0 || ^3.0.0 || ^4.0.0
-      ajv: ^8.12.0
-      ajv-errors: ^3.0.0
-      ajv-formats: ^2.1.1
-      arktype: ^2.0.0
-      ata-validator: ^1.2.0
-      class-transformer: '>=0.4.0'
-      class-validator: '>=0.12.0'
-      computed-types: ^1.0.0
-      effect: ^3.10.3
-      fluentvalidation-ts: ^3.0.0
-      fp-ts: ^2.7.0
-      io-ts: ^2.0.0
-      joi: ^17.0.0 || ^18.0.0
-      nope-validator: '>=0.12.0'
-      react-hook-form: ^7.55.0
-      superstruct: '>=0.12.0'
-      typanion: ^3.3.2
-      valibot: '>=0.31.0 || ^1.0.0-beta.4 || ^1.0.0-rc'
-      vest: '>=6.0.0'
-      yup: ^1.0.0
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      '@sinclair/typebox':
-        optional: true
-      '@standard-schema/spec':
-        optional: true
-      '@typeschema/main':
-        optional: true
-      '@vinejs/vine':
-        optional: true
-      ajv:
-        optional: true
-      ajv-errors:
-        optional: true
-      ajv-formats:
-        optional: true
-      arktype:
-        optional: true
-      ata-validator:
-        optional: true
-      class-transformer:
-        optional: true
-      class-validator:
-        optional: true
-      computed-types:
-        optional: true
-      effect:
-        optional: true
-      fluentvalidation-ts:
-        optional: true
-      fp-ts:
-        optional: true
-      io-ts:
-        optional: true
-      joi:
-        optional: true
-      nope-validator:
-        optional: true
-      superstruct:
-        optional: true
-      typanion:
-        optional: true
-      valibot:
-        optional: true
-      vest:
-        optional: true
-      yup:
-        optional: true
-      zod:
-        optional: true
 
   '@idswyft/sdk@4.0.0':
     resolution: {integrity: sha512-SYCiRBOShr/BD0fAKucb0pUVso7x1CYB/K0qsZrEuAIrp2t4H8OPr9lS+2Czek1MAwZfFNcGqH1Ut0TC5mOgLQ==}
@@ -2146,6 +2058,14 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
+
+  '@neon/config@1.10.0':
+    resolution: {integrity: sha512-Uvh9F6tY6HsZeEKU9Bd8WZVClBVc26xPGiLm11Zypox2hMiql/iof5VUsbf/18YaAx3Fw8dk1w1RsYWNEx12mw==}
+    engines: {node: '>=20.19.0'}
+
+  '@neon/sdk@7.7.0':
+    resolution: {integrity: sha512-ncGRkf+E58UEJ3U4Y1MOo6f/fyjOqzjqa3If25uYfDK6VDmRdm7ylrpsENsdZZ3vVnAO6sDnRqMHS0jIisC8XA==}
+    engines: {node: '>=20.19.0'}
 
   '@next/env@16.3.0-preview.5':
     resolution: {integrity: sha512-XqdVR0utAWMsVc1OIyO48D32vrdmC4/uAgI3Ds088YlOO4vfGKXXVyvkGFkOZkOK0xg7bNYNfJAarX4A0tYqGg==}
@@ -4627,9 +4547,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@standard-schema/utils@0.3.0':
-    resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
   '@storybook/addon-a11y@10.5.8':
     resolution: {integrity: sha512-yunl+sKa29NaUC3I4yjESwk6ED8waEgmmvIJzNAJvdhb7thFzZYYEld68RzKmOVcGBkD3snK5eZ/Xf0l4VWliQ==}
@@ -9016,12 +8933,6 @@ packages:
     peerDependencies:
       react: ^19.2.8
 
-  react-hook-form@7.85.0:
-    resolution: {integrity: sha512-U2MTriFXnclmV4rOE20p2DcRFv5WEg3FIcBFOKcOLFHDVvGIMPvLTkTWefUsonmlaVy23khVDxDWym6uJVGOzw==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      react: ^16.8.0 || ^17 || ^18 || ^19
-
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
@@ -11783,8 +11694,6 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@faker-js/faker@10.6.0': {}
-
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
@@ -11908,16 +11817,6 @@ snapshots:
   '@hono/node-server@1.19.17(hono@4.12.31)':
     dependencies:
       hono: 4.12.31
-
-  '@hookform/resolvers@5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.4.3)':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.85.0(react@19.2.8)
-    optionalDependencies:
-      '@standard-schema/spec': 1.1.0
-      ajv: 8.20.0
-      ajv-formats: 2.1.1(ajv@8.20.0)
-      zod: 4.4.3
 
   '@idswyft/sdk@4.0.0':
     dependencies:
@@ -12169,6 +12068,14 @@ snapshots:
       '@emnapi/runtime': 1.11.3
       '@tybys/wasm-util': 0.10.3
     optional: true
+
+  '@neon/config@1.10.0':
+    dependencies:
+      '@neon/sdk': 7.7.0
+      jiti: 2.7.0
+      zod: 4.6.7
+
+  '@neon/sdk@7.7.0': {}
 
   '@next/env@16.3.0-preview.5': {}
 
@@ -14326,8 +14233,6 @@ snapshots:
   '@stablelib/base64@1.0.1': {}
 
   '@standard-schema/spec@1.1.0': {}
-
-  '@standard-schema/utils@0.3.0': {}
 
   '@storybook/addon-a11y@10.5.8(storybook@10.5.8(@types/react@19.2.18)(prettier@3.9.10)(react@19.2.8))':
     dependencies:
@@ -18991,10 +18896,6 @@ snapshots:
     dependencies:
       react: 19.2.8
       scheduler: 0.27.0
-
-  react-hook-form@7.85.0(react@19.2.8):
-    dependencies:
-      react: 19.2.8
 
   react-is@16.13.1: {}
 

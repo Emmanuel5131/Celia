@@ -7,7 +7,10 @@ const config: KnipConfig = {
     'src/components/ui/**/*.tsx',
     'src/components/layout/**/*.tsx',
     'scripts/seed/forsage-case.ts',
+    'scripts/seed/clear.ts',
+    'scripts/seed/case-details.ts',
     'scripts/check-findings.ts',
+    'scripts/backfill-applications.ts',
   ],
   // Files to exclude from Knip analysis
   ignore: ['src/libs/I18n.ts', 'src/types/I18n.ts'],

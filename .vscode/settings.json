@@ -70,5 +70,6 @@
   "json.schemaDownload.trustedDomains": {
     "https://ui.shadcn.com": true
   },
-  "wake.compiler.solc.remappings": []
+  "wake.compiler.solc.remappings": [],
+  "postman.settings.dotenv-detection-notification-visibility": false
 }

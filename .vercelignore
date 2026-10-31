@@ -1,0 +1,11 @@
+.git
+node_modules
+.next
+.turbo
+.seed
+*.db
+*.tsbuildinfo
+storybook-static
+.env*.local
+.DS_Store
+docs/research/dashboard-inspiration
