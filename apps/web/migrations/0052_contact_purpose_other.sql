@@ -1,0 +1,1 @@
+ALTER TABLE "contact_request" ADD COLUMN "purpose_other" text;

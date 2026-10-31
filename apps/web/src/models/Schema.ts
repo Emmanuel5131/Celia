@@ -3,6 +3,8 @@ import type {
   Brief,
   ChainId,
   ContactChannel,
+  EvidenceReviewState,
+  EvidenceType,
   FraudType,
   NotificationType,
   OptionalCategory,
@@ -35,8 +37,17 @@ import type {
   ReviewCheck,
 } from '@/utils/accounts/Institution';
 import type { CaseStatus } from '@/utils/cases/Case';
+import type { CaseOperator } from '@/utils/cases/Operators';
+import type { AgentReportReview, ReportReview } from '@/utils/cases/ReportReview';
+import type { StoredStory } from '@/utils/cases/StoredStory';
+import type { FollowUpChannel } from '@/utils/claims/FollowUp';
 import type { OwnershipMethod } from '@/utils/claims/Ownership';
 import type { StoredCheck } from '@/utils/claims/Transaction';
+import type {
+  ContactAnswer,
+  ContactPurpose,
+  ContactRequestStatus,
+} from '@/utils/contact/ContactRequest';
 import type { Report } from '@/validations/ReportValidation';
 
 // This file defines the structure of your database tables using the Drizzle ORM.
@@ -51,16 +62,6 @@ import type { Report } from '@/validations/ReportValidation';
 
 // Need a database for production? Check out https://get.neon.com/BMFYNtx
 // Tested and compatible with Next.js Boilerplate
-
-export const counterSchema = pgTable('counter', {
-  id: serial('id').primaryKey(),
-  count: integer('count').default(0),
-  updatedAt: timestamp('updated_at', { mode: 'date' })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
-});
 
 /**
  * One person's claim: a wallet that lost money to one platform, and what they say happened. Claims for the same platform
@@ -148,6 +149,11 @@ export const claimSchema = pgTable(
     submittedAt: timestamp('submitted_at', { mode: 'date' }),
     /** When the person agreed that the claim can be shared with the people working on their case; set when they send it. */
     consentedAt: timestamp('consented_at', { mode: 'date' }),
+    /**
+     * When the person agreed that verified organisations may ask, through Celia, to contact them. Null when they did not: the box is
+     * optional. It is not permission to share anything: each request still needs their own yes.
+     */
+    contactAgreedAt: timestamp('contact_agreed_at', { mode: 'date' }),
     /** When Celia staff checked the sent claim and its evidence; null until they have. */
     validatedAt: timestamp('validated_at', { mode: 'date' }),
     /** When a member of staff started reviewing the sent claim; shown to the person as "In review". */
@@ -241,6 +247,24 @@ const bytea = customType<{ data: Buffer }>({
 });
 
 /**
+ * What the assistant made of a sent claim: whether it is worth a closer look, and the message it prepared for the staff member who
+ * decides. It is built from what the MCP server may see (no name, email, wallet or proof file) and is never shown to the claimant
+ * or to counsel. Staff still accept or reject every claim themselves.
+ */
+export const claimAgentReviewSchema = pgTable('claim_agent_review', {
+  claimId: uuid('claim_id')
+    .primaryKey()
+    .references(() => claimSchema.id, { onDelete: 'cascade' }),
+  /** True when the assistant picked the claim for a closer look. */
+  interesting: boolean('interesting').notNull(),
+  /** The assistant's message to staff: what it saw, why it flagged the claim or not, and what it suggests. */
+  message: text('message').notNull(),
+  /** The Clerk user id of the staff member whose assistant reviewed it. */
+  reviewedBy: text('reviewed_by').notNull(),
+  reviewedAt: timestamp('reviewed_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
  * A screenshot or receipt a person sent to show they control a wallet, kept as bytes so no other service holds it. Only the
  * person and staff can open it; it is never shown to counsel. It is deleted with the claim, and when staff decline it.
  */
@@ -259,6 +283,27 @@ export const claimProofSchema = pgTable(
   },
   (table) => [index('claim_proof_claim_idx').on(table.claimId)],
 );
+
+/**
+ * How a person wants Celia to follow up on their claim, asked once the claim is sent. It is private to the person and to staff:
+ * no lawyer or organisation query reads it, and it is shared only if the person explicitly agrees. It goes with the claim when
+ * the claim is deleted.
+ */
+export const claimFollowUpSchema = pgTable('claim_follow_up', {
+  claimId: uuid('claim_id')
+    .primaryKey()
+    .references(() => claimSchema.id, { onDelete: 'cascade' }),
+  channel: text('channel').$type<FollowUpChannel>().notNull(),
+  /** The phone number or handle; empty for email, which uses the address on the person's account. */
+  value: text('value'),
+  /** A good time to reach them and a language, in their own words. */
+  bestTime: text('best_time'),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
 
 /**
  * A case: the claims against one platform, pooled. The case bank shows the summary to everyone. The platform name here is
@@ -280,6 +325,8 @@ export const caseSchema = pgTable('case', {
   operators: text('operators'),
   /** The jurisdiction ids the alleged operators are linked to, such as where a company is registered. Staff set them; they record what is alleged. */
   operatorJurisdictions: jsonb('operator_jurisdictions').$type<string[]>().notNull().default([]),
+  /** The people and groups the claimants allege are behind the platform, each with a role, notes and a jurisdiction. Staff set them; they record what is alleged. It replaces `operators` and `operator_jurisdictions`, which are no longer read. */
+  operatorRows: jsonb('operator_rows').$type<CaseOperator[]>().notNull().default([]),
   /** `collecting` claims, `building` evidence or `sealed` (enough evidence). A case begins as `collecting`, moves to `building` by itself, and staff mark it `sealed`. */
   status: text('status').$type<CaseStatus>().notNull().default('collecting'),
   updatedAt: timestamp('updated_at', { mode: 'date' })
@@ -480,30 +527,15 @@ export const institutionApplicationSchema = pgTable('institution_application', {
   lookedUpAt: timestamp('looked_up_at', { mode: 'date', withTimezone: true }),
 });
 
-/**
- * The findings of an analysis of a case, frozen as a record. A case may have several versions as the analysis is redone; the
- * newest is the one shown. `snapshot` is public-facts-only JSON checked by `ReportValidation`, and `hash` is its SHA-256, so
- * a changed snapshot no longer matches the hash shown with it.
- */
-export const caseReportSchema = pgTable(
-  'case_report',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    caseId: uuid('case_id')
-      .notNull()
-      .references(() => caseSchema.id),
-    version: integer('version').notNull(),
-    snapshot: jsonb('snapshot').$type<Report>().notNull(),
-    hash: text('hash').notNull(),
-    /** The staff member who saved it. */
-    savedBy: text('saved_by').notNull(),
-    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [unique('case_report_one_per_version').on(table.caseId, table.version)],
-);
-
 /** What a member of staff did, as recorded in `staff_audit`. */
 export type StaffAction =
+  | 'claim_agent_reviewed'
+  | 'contact_request_decided'
+  | 'contact_request_released'
+  | 'contact_request_reviewed'
+  | 'report_reviewed'
+  | 'report_approved'
+  | 'report_sent_back'
   | 'counsel_verified'
   | 'ownership_confirmed'
   | 'ownership_declined'
@@ -527,6 +559,16 @@ export type StaffAction =
   | 'sandworm_called'
   | 'statement_added'
   | 'statement_removed'
+  | 'evidence_added'
+  | 'evidence_removed'
+  | 'evidence_reviewed'
+  | 'mcp_action'
+  | 'evidence_upload_started'
+  | 'case_action_updated'
+  | 'evidence_updated'
+  | 'statement_updated'
+  | 'case_action_added'
+  | 'case_action_removed'
   | 'analysis_brief_approved';
 
 /**
@@ -574,6 +616,91 @@ export const caseStatementSchema = pgTable(
 );
 
 /**
+ * Something the claimants allege a suspected person or group did: a public statement, taking deposits, stopping withdrawals,
+ * moving funds, promoting the platform. Evidence attaches to an action, on the chain or off it. It records what is alleged and is
+ * never a finding.
+ */
+export const caseActionSchema = pgTable(
+  'case_action',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    /** What kind of action it is, in staff's own words, such as "Public statement". Blank when staff gave none. */
+    kind: text('kind'),
+    /** What was done, in the house language. */
+    title: text('title').notNull(),
+    note: text('note'),
+    /** The day it happened, as `2026-09-14`. */
+    occurredOn: date('occurred_on', { mode: 'string' }),
+    /** The jurisdiction id where it happened or is linked to. */
+    jurisdiction: text('jurisdiction'),
+    /** The Clerk user id of the staff member who entered it. */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('case_action_case').on(table.caseId)],
+);
+
+/**
+ * A piece of evidence a case rests on besides a platform statement: a video, picture or document kept on IPFS, a link to a page,
+ * or a wallet or transaction the chain shows. The file itself is never stored here: only its CID, so anyone can fetch and check
+ * it. Staff enter it from public sources only; a claimant's own material is private and never goes in.
+ */
+export const caseEvidenceSchema = pgTable(
+  'case_evidence',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    type: text('type').$type<EvidenceType>().notNull(),
+    title: text('title').notNull(),
+    /** What it shows, in the house language. */
+    note: text('note'),
+    /** Where it came from. https only. Required for a link. */
+    sourceUrl: text('source_url'),
+    /** The day it was captured, as `2026-09-14`. */
+    capturedOn: date('captured_on', { mode: 'string' }),
+    /** The IPFS content id of the uploaded file. It is the file's hash, so a changed file has a different one. */
+    cid: text('cid'),
+    /** Pinata's id for the file, kept only to stop pinning it if staff remove the evidence. */
+    pinId: text('pin_id'),
+    fileName: text('file_name'),
+    mimeType: text('mime_type'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }),
+    /** The chain, for a wallet or a transaction. */
+    chain: text('chain').$type<ChainId>(),
+    /** The address or transaction hash, for on-chain evidence. */
+    reference: text('reference'),
+    /** The statement this backs or tests, when staff link them. */
+    statementId: uuid('statement_id').references(() => caseStatementSchema.id, {
+      onDelete: 'set null',
+    }),
+    /** The alleged action this backs, when staff link them. */
+    actionId: uuid('action_id').references(() => caseActionSchema.id, { onDelete: 'set null' }),
+    /** Where the review of off-chain evidence stands. On-chain evidence is read by a notebook and stays `not_reviewed`. */
+    reviewState: text('review_state')
+      .$type<EvidenceReviewState>()
+      .notNull()
+      .default('not_reviewed'),
+    /** What the reviewer found, in the house language. */
+    reviewNote: text('review_note'),
+    /** The Clerk user id of the staff member who last reviewed it. */
+    reviewedBy: text('reviewed_by'),
+    reviewedAt: timestamp('reviewed_at', { mode: 'date', withTimezone: true }),
+    /** The Clerk user id of the staff member who entered it. */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('case_evidence_case').on(table.caseId),
+    uniqueIndex('case_evidence_pin').on(table.pinId),
+  ],
+);
+
+/**
  * A brief staff approved for a case: exactly what Celia asks Sandworm to analyse. The commitment is a hash of the brief and the
  * template pin, stored with its time before the run starts, so the method is fixed before the data is read. Rows are only added.
  */
@@ -584,6 +711,8 @@ export const caseAnalysisSchema = pgTable(
     caseId: uuid('case_id')
       .notNull()
       .references(() => caseSchema.id),
+    /** The one statement of the platform this analysis checks. Each statement is researched on its own and has its own report. */
+    statementId: uuid('statement_id').references(() => caseStatementSchema.id),
     /** 1 for the first brief approved for the case, then 2 and so on. */
     run: integer('run').notNull(),
     brief: jsonb('brief').$type<Brief>().notNull(),
@@ -597,6 +726,133 @@ export const caseAnalysisSchema = pgTable(
       .notNull(),
   },
   (table) => [unique('case_analysis_run').on(table.caseId, table.run)],
+);
+
+/**
+ * The story of a case ("What may have happened"), kept as one row for each case so the page and the MCP server read the same stored
+ * facts. It holds counts and public findings only, never a claimant's name or account. It is rebuilt whenever a claim changes
+ * state, a report is approved or a statement is added or removed, and rebuilt on read when it is missing or old.
+ */
+export const caseStorySchema = pgTable('case_story', {
+  caseId: uuid('case_id')
+    .primaryKey()
+    .references(() => caseSchema.id, { onDelete: 'cascade' }),
+  /** The most reported kind of loss, or null when there are too few claims to count. */
+  kind: text('kind').$type<FraudType>(),
+  /** How many claims report that kind, out of all sent claims of the case. */
+  claimantsSaying: integer('claimants_saying').notNull().default(0),
+  claimantsTotal: integer('claimants_total').notNull().default(0),
+  /** How many of the sent claims staff have confirmed. */
+  confirmed: integer('confirmed').notNull().default(0),
+  /** From the newest approved report's estimate, as the report gave them. */
+  wallets: text('wallets'),
+  estimatedLoss: text('estimated_loss'),
+  headline: text('headline'),
+  /** Where the platform said one thing and the chain shows another, in statement order. */
+  contradictions: jsonb('contradictions')
+    .$type<StoredStory['contradictions']>()
+    .notNull()
+    .default([]),
+  computedAt: timestamp('computed_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * A verified organisation's request to reach the claimants of a case. It is filled in over several steps, reviewed by the assistant,
+ * and approved or refused by staff. Only after approval are claimants asked, and each answers for themselves; staff then check the
+ * answers once more and release the claimants who said yes to the organisation. Nothing about a claimant is shown to the
+ * organisation before that release.
+ */
+export const contactRequestSchema = pgTable(
+  'contact_request',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    /** The Clerk user id of the organisation's account. */
+    requesterId: text('requester_id').notNull(),
+    status: text('status').$type<ContactRequestStatus>().notNull().default('draft'),
+    purpose: text('purpose').$type<ContactPurpose>(),
+    /** The organisation's own words for why it wants to reach claimants; only set when `purpose` is `other`. */
+    purposeOther: text('purpose_other'),
+    askerRole: text('asker_role'),
+    reason: text('reason'),
+    /** The rules the organisation ticked, by id. */
+    declarations: jsonb('declarations').$type<string[]>().notNull().default([]),
+    /** The words the claimants will read. */
+    message: text('message'),
+    submittedAt: timestamp('submitted_at', { mode: 'date', withTimezone: true }),
+    /** What the assistant's review found and its message to staff. */
+    agentReview: jsonb('agent_review').$type<AgentReportReview>(),
+    /** The staff member who approved or refused it, and when. */
+    decidedBy: text('decided_by'),
+    decidedAt: timestamp('decided_at', { mode: 'date', withTimezone: true }),
+    decisionNote: text('decision_note'),
+    /** When staff released the claimants who said yes to the organisation; null until they do. */
+    releasedBy: text('released_by'),
+    releasedAt: timestamp('released_at', { mode: 'date', withTimezone: true }),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('contact_request_by_requester').on(table.requesterId, table.createdAt)],
+);
+
+/** One claim a request asks about, and its owner's answer. Nothing is shared unless the answer is `accepted`. */
+export const contactRequestClaimSchema = pgTable(
+  'contact_request_claim',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => contactRequestSchema.id, { onDelete: 'cascade' }),
+    claimId: uuid('claim_id')
+      .notNull()
+      .references(() => claimSchema.id, { onDelete: 'cascade' }),
+    /** The Clerk user id of the claim's owner, who is the only one who can answer. */
+    userId: text('user_id').notNull(),
+    answer: text('answer').$type<ContactAnswer>().notNull().default('pending'),
+    answeredAt: timestamp('answered_at', { mode: 'date', withTimezone: true }),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique('contact_request_claim_once').on(table.requestId, table.claimId),
+    index('contact_request_claim_by_user').on(table.userId),
+  ],
+);
+
+/**
+ * The findings of an analysis of a case, frozen as a record. A case may have several versions as the analysis is redone; the
+ * newest is the one shown. `snapshot` is public-facts-only JSON checked by `ReportValidation`, and `hash` is its SHA-256, so
+ * a changed snapshot no longer matches the hash shown with it.
+ */
+export const caseReportSchema = pgTable(
+  'case_report',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    /** The analysis (an approved plan) the report answers. A case has several, each with its own reports. */
+    analysisId: uuid('analysis_id').references(() => caseAnalysisSchema.id),
+    /** 1 for the first report of the analysis, then 2 for a correction and so on. */
+    version: integer('version').notNull(),
+    snapshot: jsonb('snapshot').$type<Report>().notNull(),
+    hash: text('hash').notNull(),
+    /** The staff member who saved it. */
+    savedBy: text('saved_by').notNull(),
+    /**
+     * Where the report is in review. An assistant drafts it, a second assistant pass reviews it, and a person approves it; only an
+     * approved report is shown outside the staff area. A report a person saved in the staff area is approved at once.
+     */
+    review: text('review').$type<ReportReview>().notNull().default('approved'),
+    /** What the assistant's review found. Null until it has reviewed. */
+    agentReview: jsonb('agent_review').$type<AgentReportReview>(),
+    /** The staff member who approved or sent it back, and when. */
+    decidedBy: text('decided_by'),
+    decidedAt: timestamp('decided_at', { mode: 'date', withTimezone: true }),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique('case_report_one_per_version').on(table.analysisId, table.version)],
 );
 
 /**

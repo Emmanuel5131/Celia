@@ -1,0 +1,1 @@
+ALTER TABLE "claim" ADD COLUMN "contact_agreed_at" timestamp;
