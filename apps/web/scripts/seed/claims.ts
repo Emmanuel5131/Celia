@@ -1,9 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import type { ChainId } from '@celia/core';
-import type { claimSchema } from '@/models/Schema';
-import { base58Chars, chars, hex, int, logNormal, pick, random, weighted } from './random';
+import type { claimFollowUpSchema, claimSchema } from '@/models/Schema';
+import type { FollowUpChannel } from '@/utils/claims/FollowUp';
+import { activeAddress, emptyAddress } from './addresses';
+import { base58Chars, hex, int, logNormal, pick, random, weighted } from './random';
 import type { Scenario } from './scenarios';
 
 export const DAY = 86_400_000;
+
+/** The claims that come with proof files. Every claim has an id before it is inserted, so this says which ones are these. */
+export const strongClaimIds = new Set<string>();
+
+/** A video that opens, for the claims that come with everything. The other video links are made up and do not. */
+const sampleVideo = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
 
 export const money = (value: number) => `$${value.toLocaleString('en-US')}`;
 
@@ -103,24 +112,6 @@ const chainFamily = (chain: ChainId) => {
 };
 
 /** An address that looks like one on the chain. Nothing here belongs to anyone. */
-function address(chain: ChainId) {
-  const family = chainFamily(chain);
-
-  if (family === 'tron') {
-    return `T${base58Chars(33)}`;
-  }
-
-  if (family === 'solana') {
-    return base58Chars(44);
-  }
-
-  if (family === 'bitcoin') {
-    return `bc1q${chars('023456789acdefghjklmnpqrstuvwxyz', 38)}`;
-  }
-
-  return `0x${hex(40)}`;
-}
-
 function txHash(chain: ChainId) {
   const family = chainFamily(chain);
 
@@ -240,15 +231,26 @@ export function buildClaim(
   const lastPaid = at - int(1, 30) * DAY;
   const asset = assetFor(chain, scenario);
   const app = own && scenario.wallets && random() < 0.85 ? pick(scenario.wallets) : null;
-  const deposit = facts.deposit.get(chain) ?? address(chain);
-  const contract = facts.contract.get(chain) ?? address(chain).toLowerCase();
+  const deposit = facts.deposit.get(chain) ?? emptyAddress(chain);
+  const contract = facts.contract.get(chain) ?? emptyAddress(chain).toLowerCase();
+  // A few claims come with everything: a signed wallet, files, a video and a large loss. A person has to look at these.
+  const strong = own && random() < 0.04;
+  const id = randomUUID();
+
+  if (strong) {
+    strongClaimIds.add(id);
+  }
+
   const loss = Math.min(
     5_000_000,
-    Math.max(20, Math.round(logNormal(scenario.medianLoss, scenario.spread) / 10) * 10),
+    Math.max(
+      strong ? 100_000 : 20,
+      Math.round(logNormal(scenario.medianLoss, scenario.spread) / 10) * 10,
+    ),
   );
-  const signed = own && random() < 0.55;
-  const asked = own && !signed && random() < 0.2;
-  const checked = asked && random() < 0.4;
+  const signed = strong || (own && random() < 0.55);
+  const asked = strong || (own && !signed && random() < 0.2);
+  const checked = asked && !strong && random() < 0.4;
   const age = facts.now - at;
   const validated = age > 7 * DAY && random() < 0.6;
   const rejected = !validated && age > 7 * DAY && random() < 0.15;
@@ -258,12 +260,13 @@ export function buildClaim(
   facts.contract.set(chain, contract);
 
   return {
+    id,
     userId: claim.userId,
     fraudType: scenario.fraudType,
     fraudTypes: [scenario.fraudType, ...(random() < 0.6 ? (scenario.alsoFits ?? []) : [])],
     paymentMethod: method,
     chain,
-    walletAddress: own ? address(chain) : null,
+    walletAddress: own ? (strong ? activeAddress(chain) : emptyAddress(chain)) : null,
     txHash: own && random() < 0.15 ? null : txHash(chain),
     platformName: facts.name,
     platformKey: facts.key,
@@ -276,7 +279,7 @@ export function buildClaim(
     walletType: app?.type ?? null,
     walletApp: app?.app ?? null,
     accountKind: own && chainFamily(chain) === 'evm' ? ('eoa' as const) : null,
-    destinationAddress: random() < 0.55 ? deposit : null,
+    destinationAddress: strong ? activeAddress(chain) : random() < 0.55 ? deposit : null,
     firstPaymentOn: day(lastPaid - int(0, 60) * DAY),
     lastPaymentOn: day(lastPaid),
     assetSent: asset,
@@ -286,15 +289,26 @@ export function buildClaim(
     country: claim.country,
     ownership: signed || checked ? 'signed' : asked ? 'review' : 'unsigned',
     ownershipMethod: signed ? ('signature' as const) : checked ? ('staff' as const) : null,
-    reviewVideoUrl: asked && random() < 0.5 ? `https://www.loom.com/share/${hex(32)}` : null,
-    proofNote: asked ? 'Screenshots of my wallet app and the first transfer.' : null,
+    reviewVideoUrl:
+      asked && (strong || random() < 0.5)
+        ? strong
+          ? sampleVideo
+          : `https://www.loom.com/share/${hex(32)}`
+        : null,
+    proofNote: strong
+      ? 'Signed with my wallet. Screenshots of the app and the first transfer, and a video of the withdrawal failing.'
+      : asked
+        ? 'Screenshots of my wallet app and the first transfer.'
+        : null,
     reviewRequestedAt: asked ? new Date(at + int(0, 2) * DAY) : null,
-    reviewedAt: checked ? new Date(Math.min(facts.now, at + int(2, 9) * DAY)) : null,
+    reviewedAt: checked && !strong ? new Date(Math.min(facts.now, at + int(2, 9) * DAY)) : null,
     nonce: hex(32),
     signature: signed ? `0x${hex(130)}` : null,
     signedAt: signed ? new Date(at) : null,
     status: 'submitted',
     consentedAt: new Date(at),
+    // Most people tick the optional box that lets verified organisations ask to contact them; about a third do.
+    contactAgreedAt: random() < 0.35 ? new Date(at) : null,
     validatedAt: validated ? new Date(at + int(1, 6) * DAY) : null,
     // A few unconfirmed claims have been started on by staff, and a few were rejected, so every state exists to look at.
     staffReviewStartedAt: validated || rejected || started ? new Date(at + int(1, 3) * DAY) : null,
@@ -304,4 +318,44 @@ export function buildClaim(
     createdAt: new Date(at),
     updatedAt: new Date(at),
   } satisfies typeof claimSchema.$inferInsert;
+}
+
+const bestTimes = [
+  'Evenings, English',
+  'Weekdays after 17:00, English',
+  'Mornings, French',
+  'Weekends, English',
+  'Any time, French',
+  'Lunchtime on weekdays, English',
+];
+
+/**
+ * How a claimant asked to be followed up, as the claim form saves it. Email uses the address on the person's account, so a real
+ * account has none here. A sample claimant has no account, so their sample address is kept here for staff to see. The numbers
+ * are in the range reserved for fiction and the addresses are on `example.com`, so none can reach a real person.
+ * @param claim - The claim and who filed it.
+ * @param claim.id - The claim id.
+ * @param claim.userId - The claimant.
+ * @param hasAccount - Whether the claimant is a real account.
+ * @returns The row to insert.
+ */
+export function buildFollowUp(claim: { id: string; userId: string }, hasAccount: boolean) {
+  const channel = weighted<FollowUpChannel>([
+    ['email', 55],
+    ['phone', 25],
+    ['messaging', 20],
+  ]);
+  const number = claim.userId.replaceAll(/\D/gu, '').slice(-5) || hex(5);
+  const values = {
+    email: hasAccount ? null : `claimant.${number}@example.com`,
+    phone: `+44 7700 900${int(100, 999)}`,
+    messaging: `@user_${hex(6)}`,
+  };
+
+  return {
+    claimId: claim.id,
+    channel,
+    value: values[channel],
+    bestTime: random() < 0.8 ? pick(bestTimes) : null,
+  } satisfies typeof claimFollowUpSchema.$inferInsert;
 }

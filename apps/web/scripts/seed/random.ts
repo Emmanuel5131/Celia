@@ -17,7 +17,7 @@ function mulberry32(seed: number) {
 export const random = mulberry32(20_261_027);
 export const int = (min: number, max: number) => min + Math.floor(random() * (max - min + 1));
 export const pick = <T>(items: T[]) => items[Math.floor(random() * items.length)] as T;
-export const chars = (alphabet: string, length: number) =>
+const chars = (alphabet: string, length: number) =>
   Array.from({ length }, () => alphabet[int(0, alphabet.length - 1)]).join('');
 export const hex = (length: number) => chars('0123456789abcdef', length);
 export const base58Chars = (length: number) => chars(base58, length);

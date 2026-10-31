@@ -1,16 +1,28 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { platformKey } from '@celia/core';
 import { getJurisdiction } from '@celia/jurisdictions';
 import { createClerkClient } from '@clerk/nextjs/server';
+import type { SQL } from 'drizzle-orm';
 import { and, count as countRows, eq, inArray, isNotNull, like, or } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { Env } from '@/libs/Env';
 import {
+  caseActionSchema,
+  caseAnalysisSchema,
   caseEventSchema,
+  caseEvidenceSchema,
   caseReportSchema,
   caseSchema,
+  caseStatementSchema,
   caseTeamSchema,
+  claimAddressSchema,
+  claimFollowUpSchema,
+  claimProofSchema,
+  claimRevisionSchema,
   claimSchema,
+  claimTransactionSchema,
+  contactRequestSchema,
   counselProfileSchema,
   institutionApplicationSchema,
   identityCheckSchema,
@@ -22,8 +34,20 @@ import type { CaseStatus } from '@/utils/cases/Case';
 import { describeCase, hashReport } from '@/utils/cases/Report';
 import { createDbConnection } from '@/utils/DBConnection';
 import { ReportValidation } from '@/validations/ReportValidation';
-import { buildClaim, DAY, inventedWord, money, usStates, victimCountries } from './claims';
+import {
+  buildClaim,
+  buildFollowUp,
+  DAY,
+  inventedWord,
+  money,
+  strongClaimIds,
+  usStates,
+  victimCountries,
+} from './claims';
 import type { CaseFacts } from './claims';
+import { evidenceFor } from './evidence';
+import { buildPlanted, shareOut } from './planted';
+import type { CaseContext } from './planted';
 import { hex, int, logNormal, pick, random, waiting, weighted } from './random';
 import { scenarios } from './scenarios';
 import type { Scenario } from './scenarios';
@@ -33,9 +57,13 @@ import type { Scenario } from './scenarios';
  * modelled on (see `scenarios.ts`): most cases are small, a few gather hundreds of claims, victims come from where reports
  * say they do, and claims arrive over weeks. Claimants are `seed_user_*`, and every operator is invented. A few claimants are
  * real accounts in a Clerk development instance, so they can sign in. Running it again replaces the sample rows and touches
- * nothing else. It refuses to run against a database that is not on this machine.
+ * nothing else. It refuses to run against a database that is not on this machine. `--cases <n>` sets how many cases (default 1000).
  */
-const CASES = 1000;
+const casesArg = process.argv.slice(2).indexOf('--cases');
+const CASES = casesArg === -1 ? 1000 : Number(process.argv.slice(2)[casesArg + 1]);
+
+/** How many planted claims are mixed in: coherent, and false in a way only a person who reads the case would see. */
+const PLANTED_CLAIMS = 1000;
 
 /** Multiplies how many claims each case gets. 1 gives about 85,000 claims in all; 10 gives close to a million. */
 const CLAIM_SCALE = 1;
@@ -98,7 +126,7 @@ function buildReport(options: { wallets: number; opened: number }) {
         index === 0
           ? 'Outgoing transfers to users fall to zero and stay there for the rest of the period read.'
           : 'The chain data read does not settle this.',
-      result: index === 0 ? 'proven' : 'not_checkable',
+      result: index === 0 ? 'proven_false' : 'not_checkable',
       tests: index === 0 ? ['withdrawals-by-week'] : ['funding-sources'],
     })),
     tests: [
@@ -177,7 +205,19 @@ for (const id of [...victimCountries.map(([country]) => country), ...usStates]) 
   }
 }
 
+/** Deletes the claims a condition matches, after the rows that point at them. */
+async function deleteClaims(where: SQL | undefined) {
+  const ids = db.select({ id: claimSchema.id }).from(claimSchema).where(where);
+
+  await db.delete(claimAddressSchema).where(inArray(claimAddressSchema.claimId, ids));
+  await db.delete(claimTransactionSchema).where(inArray(claimTransactionSchema.claimId, ids));
+  await db.delete(claimRevisionSchema).where(inArray(claimRevisionSchema.claimId, ids));
+  await db.delete(claimProofSchema).where(inArray(claimProofSchema.claimId, ids));
+  await db.delete(claimSchema).where(where);
+}
+
 const realIds = [...clerkIds.values()];
+const realIdSet = new Set(realIds);
 const realPeople = accounts
   .filter((account) => account.email.startsWith('person'))
   .flatMap((account) => clerkIds.get(account.email) ?? []);
@@ -249,8 +289,12 @@ for (const person of realPeople) {
 type EventRow = typeof caseEventSchema.$inferInsert;
 
 const cases: (typeof caseSchema.$inferInsert)[] = [];
-const claimJobs: (() => (typeof claimSchema.$inferInsert)[])[] = [];
+const claimJobs: (() => (typeof claimSchema.$inferInsert & { id: string })[])[] = [];
+const contexts: CaseContext[] = [];
 const reports: (typeof caseReportSchema.$inferInsert)[] = [];
+const statements: (typeof caseStatementSchema.$inferInsert)[] = [];
+const evidence: (typeof caseEvidenceSchema.$inferInsert)[] = [];
+const analyses: (typeof caseAnalysisSchema.$inferInsert)[] = [];
 const events: EventRow[] = [];
 const WEEK = 7 * DAY;
 
@@ -308,6 +352,15 @@ for (const [index, plan] of plans.entries()) {
     ),
   );
 
+  contexts.push({
+    scenario,
+    facts,
+    size,
+    first: arrivals[0] ?? opened,
+    last: lastClaim,
+    statements: [],
+  });
+
   event('case_opened', opened);
 
   // Claims reach staff week by week, so the activity on a case has a shape.
@@ -329,15 +382,57 @@ for (const [index, plan] of plans.entries()) {
   const reportCount =
     status === 'sealed' ? (random() < 0.2 ? 2 : 1) : status === 'building' ? 1 : 0;
 
+  // A report answers one statement of the platform, so a case with reports has one statement, one approved plan and its reports.
+  const statementId = randomUUID();
+  const analysisId = randomUUID();
+
   for (let version = 1; version <= reportCount; version++) {
     const savedAt = Math.min(now, lastClaim + version * int(2, 10) * DAY);
     // Only some of the people a platform harmed ever file a claim.
-    const snapshot = buildReport({ wallets: size * int(8, 30), opened: savedAt });
+    const full = buildReport({ wallets: size * int(8, 30), opened: savedAt });
+    const snapshot = { ...full, checks: full.checks.slice(0, 1) };
+
+    if (version === 1) {
+      statements.push({
+        id: statementId,
+        caseId: id,
+        kind: 'withdrawals',
+        text: snapshot.checks[0]?.claim ?? 'Withdrawals are always available.',
+        sourceUrl: `https://${key}.example/faq`,
+        createdBy: 'seed_staff',
+      });
+      evidence.push(...evidenceFor({ caseId: id, key, statementId, now }));
+      analyses.push({
+        id: analysisId,
+        caseId: id,
+        statementId,
+        run: 1,
+        brief: {
+          case: { id, number: '', name },
+          template: { id: 'investment-platform', version: '1.0.0' },
+          chains: [],
+          receivingAddresses: [],
+          tokenContracts: [],
+          hosts: [],
+          window: { from: '2026-01-01', to: '2026-02-01' },
+          platformStatements: [],
+          tests: [],
+          budget: { maxRuns: 3, maxPagesPerAddress: 50, timeoutSeconds: 300 },
+          skippedChains: [],
+        },
+        templateId: 'investment-platform',
+        templateVersion: '1.0.0',
+        commitment: `0x${hex(64)}`,
+        approvedBy: 'seed_staff',
+        approvedAt: new Date(savedAt - DAY),
+      });
+    }
 
     description = describeCase(snapshot);
     lossUsd = snapshot.estimate?.lossUsd ?? null;
     reports.push({
       caseId: id,
+      analysisId,
       version,
       snapshot,
       hash: hashReport(snapshot),
@@ -382,23 +477,45 @@ for (const batch of chunks(
     .where(inArray(caseSchema.platformKey, batch));
   const ids = found.map((row) => row.id);
 
-  await db.delete(claimSchema).where(inArray(claimSchema.platformKey, batch));
+  await deleteClaims(inArray(claimSchema.platformKey, batch));
 
   if (ids.length > 0) {
+    await db.delete(contactRequestSchema).where(inArray(contactRequestSchema.caseId, ids));
     await db.delete(caseEventSchema).where(inArray(caseEventSchema.caseId, ids));
     await db.delete(caseReportSchema).where(inArray(caseReportSchema.caseId, ids));
+    await db.delete(caseAnalysisSchema).where(inArray(caseAnalysisSchema.caseId, ids));
+    await db.delete(caseEvidenceSchema).where(inArray(caseEvidenceSchema.caseId, ids));
+    await db.delete(caseActionSchema).where(inArray(caseActionSchema.caseId, ids));
+    await db.delete(caseStatementSchema).where(inArray(caseStatementSchema.caseId, ids));
     await db.delete(caseTeamSchema).where(inArray(caseTeamSchema.caseId, ids));
     await db.delete(caseSchema).where(inArray(caseSchema.id, ids));
   }
 }
 
-await db.delete(claimSchema).where(seedUsers(claimSchema.userId));
+await deleteClaims(seedUsers(claimSchema.userId));
 await db.delete(userSettingSchema).where(seedUsers(userSettingSchema.userId));
 await db.delete(identityCheckSchema).where(seedUsers(identityCheckSchema.userId));
 await db.delete(counselProfileSchema).where(inArray(counselProfileSchema.userId, realIds));
 await db
   .delete(institutionApplicationSchema)
   .where(inArray(institutionApplicationSchema.userId, realIds));
+
+// The planted claims are filed by new claimants named like all the others, so nothing in the database tells them apart. The answer
+// key is a file, written when they are inserted.
+const plantedCounts = shareOut(
+  contexts.map((context) => context.size),
+  PLANTED_CLAIMS,
+);
+const plantedUsers = plantedCounts.map((count) =>
+  Array.from({ length: count }, () => {
+    const id = `seed_user_${String(strangers.length + 1).padStart(5, '0')}`;
+
+    strangers.push(id);
+    claimants.push(id);
+
+    return id;
+  }),
+);
 
 for (const rows of chunks(cases)) {
   await db.insert(caseSchema).values(rows);
@@ -460,16 +577,95 @@ await db.insert(institutionApplicationSchema).values(
   }),
 );
 
+// A one-pixel image stands in for a screenshot.
+const sampleProof = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 let claimTotal = 0;
 
-for (const job of claimJobs) {
+async function insertClaims(rows: (typeof claimSchema.$inferInsert & { id: string })[]) {
+  for (const part of chunks(rows)) {
+    await db.insert(claimSchema).values(part);
+    // Every claim says how the person wants to be followed up, as the form asks once a claim is sent.
+    await db
+      .insert(claimFollowUpSchema)
+      .values(part.map((row) => buildFollowUp(row, realIdSet.has(row.userId))));
+  }
+}
+
+for (const [index, job] of claimJobs.entries()) {
   const rows = job();
+  const context = contexts[index];
 
   claimTotal += rows.length;
 
-  for (const part of chunks(rows)) {
-    await db.insert(claimSchema).values(part);
+  if (context) {
+    context.statements = rows.flatMap((row) => (row.statement ? [row.statement] : []));
   }
+
+  await insertClaims(rows);
+
+  // A strong claim has two files beside its signature and video.
+  const withFiles = rows.flatMap((row) =>
+    strongClaimIds.has(row.id) && row.reviewRequestedAt ? row.id : [],
+  );
+
+  for (const part of chunks(withFiles)) {
+    await db.insert(claimProofSchema).values(
+      part.flatMap((claimId) =>
+        ['wallet-app.png', 'first-transfer.png'].map((name) => ({
+          claimId,
+          name,
+          contentType: 'image/png',
+          size: sampleProof.length,
+          data: sampleProof,
+        })),
+      ),
+    );
+  }
+}
+
+const plantedTruth = contexts.flatMap((context, index) => {
+  const userIds = plantedUsers[index] ?? [];
+
+  if (userIds.length === 0 || context.statements.length === 0) {
+    return [];
+  }
+
+  const planted = buildPlanted(context, userIds);
+
+  return [planted];
+});
+
+for (const planted of plantedTruth) {
+  await insertClaims(planted.claims);
+  claimTotal += planted.claims.length;
+}
+
+const answerKey = new URL('../../.seed/planted-claims.json', import.meta.url);
+
+mkdirSync(new URL('./', answerKey), { recursive: true });
+writeFileSync(
+  answerKey,
+  `${JSON.stringify(
+    plantedTruth.flatMap((planted) => planted.truth),
+    null,
+    2,
+  )}\n`,
+);
+
+for (const rows of chunks(statements)) {
+  await db.insert(caseStatementSchema).values(rows);
+}
+
+for (const rows of chunks(evidence)) {
+  await db.insert(caseEvidenceSchema).values(rows);
+}
+
+for (const rows of chunks(analyses)) {
+  await db.insert(caseAnalysisSchema).values(rows);
 }
 
 for (const rows of chunks(reports)) {
