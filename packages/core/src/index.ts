@@ -3,6 +3,7 @@ export {
   analysisTemplates,
   confirmedClaimsToBuild,
   dominantFraudType,
+  isResearchable,
   prepareAnalysis,
   statementKinds,
   templateFor,
@@ -17,6 +18,21 @@ export type {
   PreflightProblem,
   StatementKind,
 } from './analysis';
+export {
+  evidenceFileTypes,
+  evidenceReviewStates,
+  evidenceSources,
+  evidenceTypes,
+  isAnalysisType,
+  isEvidenceFileType,
+  isReferenceType,
+  isValidChainReference,
+  maxEvidenceFileBytes,
+  offChainTypes,
+  onChainTypes,
+  sourceOf,
+} from './evidence';
+export type { EvidenceFileType, EvidenceReviewState, EvidenceSource, EvidenceType } from './evidence';
 export { isValidAddress, isValidTxHash } from './chains/address';
 export type { ChainId } from './chains/chains';
 export { chainFamily, chainIds, chains, getChain } from './chains/chains';

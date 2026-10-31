@@ -17,6 +17,8 @@ export const notificationTypes = [
   'application_rejected',
   'case_ready_for_counsel',
   'case_taken_by_you',
+  'contact_request',
+  'contact_request_decided',
 ] as const;
 
 export type NotificationType = (typeof notificationTypes)[number];
@@ -57,6 +59,9 @@ export const notificationCatalog: Record<NotificationType, CatalogEntry> = {
   application_rejected: { audience: 'counsel', category: 'account', essential: true, email: true },
   case_ready_for_counsel: { audience: 'counsel', category: 'cases', essential: false, email: true },
   case_taken_by_you: { audience: 'counsel', category: 'cases', essential: true, email: true },
+  // An organisation asking to contact a claimant: the claimant must be told, so it always goes by email.
+  contact_request: { audience: 'claimant', category: 'claims', essential: true, email: true },
+  contact_request_decided: { audience: 'counsel', category: 'account', essential: true, email: true },
 };
 
 /** A person's email choices by category. A category with no entry is on. */

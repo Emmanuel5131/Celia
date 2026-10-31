@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dominantFraudType, prepareAnalysis, templateFor } from './analysis';
+import { dominantFraudType, isResearchable, prepareAnalysis, templateFor } from './analysis';
 import type { BriefInput } from './analysis';
 
 const evm = '0x52908400098527886E0F7030069857D2E4169EE7';
@@ -24,6 +24,7 @@ const ready: BriefInput = {
       sourceUrl: 'https://example.com/faq',
     },
   ],
+  focus: 0,
   runs: 0,
   now: new Date('2026-10-31T12:00:00Z'),
 };
@@ -36,20 +37,20 @@ describe(prepareAnalysis, () => {
 
     expect(problems).toStrictEqual([]);
     expect(brief).toMatchObject({
-      template: { id: 'investment-platform', version: '1.0.0' },
+      template: { id: 'investment-platform', version: '1.1.0' },
       chains: ['ethereum'],
       hosts: ['example.com'],
       window: { from: '2026-09-01', to: '2026-10-31' },
     });
   });
 
-  it('says which tests back each statement', () => {
+  it('lists only the tests that back the statement', () => {
     const { brief } = prepareAnalysis(ready);
 
     expect(brief?.tests.find((test) => test.id === 'withdrawals-by-day')?.statements).toStrictEqual(
       [0],
     );
-    expect(brief?.tests.find((test) => test.id === 'payout-source')?.statements).toStrictEqual([]);
+    expect(brief?.tests.some((test) => test.id === 'payout-source')).toBe(false);
   });
 
   it('blocks a sealed case', () => {
@@ -141,17 +142,36 @@ describe(prepareAnalysis, () => {
     expect(problems).toStrictEqual([{ code: 'chains_skipped', blocking: false }]);
   });
 
-  it('warns about a statement no test can answer', () => {
+  it('checks only the statement it is focused on', () => {
+    const { brief } = prepareAnalysis({
+      ...ready,
+      statements: [
+        { kind: 'other', text: 'We are regulated.', sourceUrl: 'https://example.com/about' },
+        ...ready.statements,
+      ],
+      focus: 1,
+    });
+
+    expect(brief?.platformStatements.map((statement) => statement.text)).toStrictEqual([
+      'Withdrawals are always available.',
+    ]);
+    expect(brief?.tests.map((test) => test.id)).toStrictEqual(['withdrawals-by-day']);
+  });
+
+  it('blocks a statement no test can answer', () => {
     const result = prepareAnalysis({
       ...ready,
       statements: [
-        ...ready.statements,
         { kind: 'other', text: 'We are regulated.', sourceUrl: 'https://example.com/about' },
       ],
     });
 
-    expect(result.brief).not.toBeNull();
-    expect(result.problems).toStrictEqual([{ code: 'statement_not_checkable', blocking: false }]);
+    expect(result.brief).toBeNull();
+    expect(result.problems).toStrictEqual([{ code: 'statement_not_checkable', blocking: true }]);
+  });
+
+  it('blocks a statement that is not there', () => {
+    expect(codes({ ...ready, focus: 4 })).toContain('no_statement');
   });
 
   it('ends the window a month after the last known payment', () => {
@@ -207,5 +227,15 @@ describe(templateFor, () => {
   it('finds none for a fraud type without one', () => {
     expect(templateFor('rug_pull')).toBeUndefined();
     expect(templateFor(undefined)).toBeUndefined();
+  });
+});
+
+describe(isResearchable, () => {
+  it('is true for a kind a test backs', () => {
+    expect(isResearchable('withdrawals')).toBe(true);
+  });
+
+  it('is false for a statement the chain cannot show', () => {
+    expect(isResearchable('other')).toBe(false);
   });
 });

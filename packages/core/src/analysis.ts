@@ -40,7 +40,7 @@ type AnalysisTemplate = {
  */
 export const analysisTemplates = {
   'investment-platform': {
-    version: '1.0.0',
+    version: '1.1.0',
     fraudTypes: ['investment_platform'],
     maxWindowDays: 730,
     windowAfterLastPaymentDays: 30,
@@ -69,6 +69,18 @@ export const analysableChains = [
   'avalanche',
 ] as const satisfies readonly ChainId[];
 
+/**
+ * Whether any template has a test that can answer a kind of statement. A statement of another kind is kept and shown, but there is
+ * nothing to research for it.
+ * @param kind - The statement's kind.
+ * @returns True when a test backs the kind.
+ */
+export function isResearchable(kind: StatementKind) {
+  return Object.values(analysisTemplates).some((template) =>
+    template.tests.some((test) => test.backs.some((backed) => backed === kind)),
+  );
+}
+
 /** A wallet, contract or other address on one chain. */
 export type ChainAddress = { chain: ChainId; address: string };
 
@@ -90,7 +102,12 @@ export type BriefInput = {
   /** When the latest payment was made, as an ISO time or day, or null when none is known. The dates then run to today. */
   lastPaymentAt: string | null;
   statements: readonly PlatformStatement[];
-  /** How many briefs were already approved for the case. */
+  /**
+   * The one statement this analysis checks, as its place in `statements`. Each statement is researched on its own, with its own
+   * brief and its own report, so the brief holds that statement and only the tests that can answer it.
+   */
+  focus: number;
+  /** How many briefs were already approved for that statement. */
   runs: number;
   now: Date;
 };
@@ -249,7 +266,9 @@ export function prepareAnalysis(input: BriefInput) {
     warn('addresses_skipped');
   }
 
-  if (input.statements.length === 0) {
+  const statements = input.statements.slice(input.focus, input.focus + 1);
+
+  if (statements.length === 0) {
     block('no_statement');
   }
 
@@ -263,15 +282,15 @@ export function prepareAnalysis(input: BriefInput) {
 
   const tests = (template?.tests ?? []).map((test) => ({
     id: test.id,
-    statements: input.statements.flatMap((statement, index) =>
+    statements: statements.flatMap((statement, index) =>
       test.backs.some((kind) => kind === statement.kind) ? [index] : [],
     ),
   }));
+  const backing = tests.filter((test) => test.statements.length > 0);
 
-  const backed = new Set(tests.flatMap((test) => test.statements));
-
-  if (input.statements.some((_, index) => !backed.has(index))) {
-    warn('statement_not_checkable');
+  // A statement no test can answer has nothing to run, so there is no analysis to approve for it.
+  if (statements.length > 0 && backing.length === 0) {
+    block('statement_not_checkable');
   }
 
   if (problems.some((problem) => problem.blocking) || !template || !templateId) {
@@ -309,8 +328,8 @@ export function prepareAnalysis(input: BriefInput) {
     tokenContracts: contracts.kept,
     hosts: [...new Set(input.hosts.map((host) => host.trim().toLowerCase()).filter(Boolean))],
     window: { from: day(from), to: day(to) },
-    platformStatements: input.statements.map((statement) => ({ ...statement })),
-    tests,
+    platformStatements: statements.map((statement) => ({ ...statement })),
+    tests: backing,
     budget: template.budget,
     skippedChains,
   };
