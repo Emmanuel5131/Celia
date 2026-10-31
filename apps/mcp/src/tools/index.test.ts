@@ -36,6 +36,8 @@ describe(registerTools, () => {
     expect(await toolNames('staff')).toStrictEqual(
       [
         ...caseTools,
+        'get_analysis_brief',
+        'get_analysis_contract',
         'get_report_format',
         'list_claims_to_review',
         'sandworm_call',

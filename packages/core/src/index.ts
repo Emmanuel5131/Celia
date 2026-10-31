@@ -1,3 +1,22 @@
+export {
+  analysableChains,
+  analysisTemplates,
+  confirmedClaimsToBuild,
+  dominantFraudType,
+  prepareAnalysis,
+  statementKinds,
+  templateFor,
+} from './analysis';
+export type {
+  AnalysisTemplateId,
+  Brief,
+  BriefInput,
+  ChainAddress,
+  PlatformStatement,
+  PreflightCode,
+  PreflightProblem,
+  StatementKind,
+} from './analysis';
 export { isValidAddress, isValidTxHash } from './chains/address';
 export type { ChainId } from './chains/chains';
 export { chainFamily, chainIds, chains, getChain } from './chains/chains';

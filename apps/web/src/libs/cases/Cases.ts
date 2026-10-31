@@ -21,6 +21,17 @@ import type { CaseRow } from '@/utils/cases/Case';
 /** A case with the platform key that ties it to claims. The key never reaches the browser. */
 export type CaseDetail = CaseRow & { platformKey: string };
 
+/**
+ * A case without its platform key, which is the form that may be handed to a component running in the browser.
+ * @param detail - The case.
+ * @returns The case row.
+ */
+export function toCaseRow(detail: CaseDetail): CaseRow {
+  const { platformKey: _key, ...row } = detail;
+
+  return row;
+}
+
 // When each case's evidence file was sealed. A claim sent after that is not part of the file, so it is not counted with the case.
 const sealedEvents = db
   .select({ caseId: caseEventSchema.caseId, at: max(caseEventSchema.createdAt).as('sealed_at') })

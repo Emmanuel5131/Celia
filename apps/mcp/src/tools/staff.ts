@@ -42,6 +42,26 @@ export function registerStaffTools(server: McpServer, web: WebClient) {
   );
 
   server.registerTool(
+    'get_analysis_brief',
+    {
+      description:
+        'The analysis brief a staff member approved for a case: the template, chains, the platform\'s addresses, the window, the statements to test and the budget, with its run number and commitment. Run exactly this and nothing else. If none is approved it says what blocks one; tell the staff member, and do not start an analysis. Approving is a person\'s step in the staff area.',
+      inputSchema: { caseId: z.uuid().describe('The case id from list_cases') },
+    },
+    handle(async ({ caseId }) => await web(`/api/mcp/staff/cases/${caseId}/analysis-brief`)),
+  );
+
+  server.registerTool(
+    'get_analysis_contract',
+    {
+      description:
+        'The contract for an analysis run: the JSON schema of the findings file the template notebook writes, and the rules for the run (fork the template, set only its parameter cells, write and read the findings file, never put a claimant wallet in a notebook). Read it before running an approved brief.',
+      inputSchema: {},
+    },
+    handle(async () => await web('/api/mcp/staff/analysis-contract')),
+  );
+
+  server.registerTool(
     'sandworm_list_tools',
     {
       description:

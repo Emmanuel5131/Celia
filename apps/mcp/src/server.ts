@@ -21,7 +21,7 @@ const instructions =
 // area once), so this server reaches it through sandworm_list_tools and sandworm_call, which add Celia's workspace, refuse
 // claimants' wallets and write the staff audit. A Sandworm MCP connected beside this one still works but has none of those checks.
 const staffInstructions =
-  'For research, use sandworm_list_tools and sandworm_call: build and run the analysis in a Sandworm notebook and publish it. Then read get_report_format, turn the results into findings and show them to the staff member. Call save_case_report only after they approve. Never put a claimant\'s name, wallet or statement into a notebook.';
+  'For research, start from get_analysis_brief: run only a brief a staff member approved, and follow get_analysis_contract. Use sandworm_list_tools and sandworm_call to fork the template, set its parameters and run it. Then read get_report_format, write the sentences around the findings (never change a number or a verdict) and show them to the staff member. Call save_case_report only after they approve. Never put a claimant\'s name, wallet or statement into a notebook.';
 
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];

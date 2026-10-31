@@ -1,0 +1,9 @@
+{
+  "CASE_NUMBER": "cb-test-forsage",
+  "RUN": 1,
+  "CHAIN": "ethereum",
+  "ADDRESSES": "0xbfdbD665A11c60B6465Ec687e23241fC74bfC2fa",
+  "WINDOW_FROM": "2020-01-20",
+  "WINDOW_TO": "2020-02-20",
+  "SOURCE": "blockscout"
+}

@@ -140,3 +140,6 @@ export const NewReportValidation = ReportValidation.refine(
 );
 
 export type Report = z.infer<typeof ReportValidation>;
+
+// The findings file (`FindingsValidation`) holds a report's tests, so it shares their limits and wording rules.
+export { idPattern, text as limitedText };

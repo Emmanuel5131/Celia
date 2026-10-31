@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import * as z from 'zod';
+import { ReportPdfButton } from '@/components/cases/ReportPdfButton';
 import { ReportSummary } from '@/components/cases/ReportSummary';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageSection } from '@/components/layout/PageSection';
@@ -60,6 +61,7 @@ export default async function AnalysisPage(props: AnalysisPageProps) {
             {found.name} · <span className="font-mono">{found.number}</span>
           </span>
         }
+        actions={<ReportPdfButton caseId={found.id} version={report.version} />}
       />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-12">
         <ReportSummary report={report} caseId={found.id} full />

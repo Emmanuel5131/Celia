@@ -5,8 +5,7 @@ import * as React from 'react';
 import { setCaseStatus } from '@/app/[locale]/(auth)/dashboard/staff/actions';
 import { DataTable } from '@/components/data-table/DataTable';
 import { createAppColumnHelper } from '@/components/data-table/table';
-import { OperatorsDialog } from '@/components/staff/OperatorsDialog';
-import { ReportDialog } from '@/components/staff/ReportDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -16,26 +15,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Link } from '@/libs/I18nNavigation';
+import type { AnalysisStatus } from '@/utils/analysis/Status';
 import { caseStatuses } from '@/utils/cases/Case';
 import type { CaseRow, CaseStatus } from '@/utils/cases/Case';
 
+/** A case as staff see it in the list: the case and where its analysis stands. */
+type StaffCaseRow = CaseRow & { analysis: AnalysisStatus };
+
 function Heading(props: {
-  id:
-    | 'case'
-    | 'jurisdictions'
-    | 'operators'
-    | 'victims'
-    | 'status'
-    | 'updated'
-    | 'report'
-    | 'analysis';
+  id: 'case' | 'jurisdictions' | 'victims' | 'status' | 'updated' | 'next' | 'open';
 }) {
   const t = useTranslations('Staff');
 
   return t(`col_${props.id}`);
 }
 
-function StageSelect(props: { row: CaseRow }) {
+function StageSelect(props: { row: StaffCaseRow }) {
   const t = useTranslations('CaseBank');
   const staff = useTranslations('Staff');
   const [pending, startTransition] = React.useTransition();
@@ -70,16 +65,26 @@ function StageSelect(props: { row: CaseRow }) {
   );
 }
 
-function AnalysisLink(props: { row: CaseRow }) {
+const nextStepBadge = {
+  needs_plan: 'dashed',
+  agent_working: 'default',
+  report_saved: 'solid',
+} as const;
+
+function NextStep(props: { row: StaffCaseRow }) {
   const t = useTranslations('Staff');
 
-  if (!props.row.hasReport) {
-    return <span className="text-ink-muted">—</span>;
-  }
+  return (
+    <Badge variant={nextStepBadge[props.row.analysis]}>{t(`status_${props.row.analysis}`)}</Badge>
+  );
+}
+
+function OpenCase(props: { row: StaffCaseRow }) {
+  const t = useTranslations('Staff');
 
   return (
     <Button asChild variant="outline" size="sm">
-      <Link href={`/dashboard/staff/cases/${props.row.id}`}>{t('analysis_view')}</Link>
+      <Link href={`/dashboard/staff/cases/${props.row.id}`}>{t('case_open')}</Link>
     </Button>
   );
 }
@@ -90,7 +95,7 @@ function UpdatedText(props: { value: string }) {
   return format.dateTime(new Date(props.value), { dateStyle: 'medium' });
 }
 
-const helper = createAppColumnHelper<CaseRow>();
+const helper = createAppColumnHelper<StaffCaseRow>();
 
 const columns = helper.columns([
   helper.accessor((row) => `${row.name} ${row.number}`, {
@@ -118,28 +123,22 @@ const columns = helper.columns([
       caseStatuses.indexOf(a.getValue<CaseStatus>(columnId)) -
       caseStatuses.indexOf(b.getValue<CaseStatus>(columnId)),
   }),
-  helper.display({
-    id: 'operators',
-    header: () => <Heading id="operators" />,
-    cell: ({ row }) => <OperatorsDialog row={row.original} />,
-    enableSorting: false,
-  }),
-  helper.display({
-    id: 'report',
-    header: () => <Heading id="report" />,
-    cell: ({ row }) => <ReportDialog row={row.original} />,
-    enableSorting: false,
-  }),
-  helper.display({
-    id: 'analysis',
-    header: () => <Heading id="analysis" />,
-    cell: ({ row }) => <AnalysisLink row={row.original} />,
-    enableSorting: false,
+  helper.accessor('analysis', {
+    id: 'next',
+    header: () => <Heading id="next" />,
+    cell: ({ row }) => <NextStep row={row.original} />,
+    filterFn: 'inSet',
   }),
   helper.accessor('updatedAt', {
     id: 'updated',
     header: () => <Heading id="updated" />,
     cell: ({ getValue }) => <UpdatedText value={getValue()} />,
+  }),
+  helper.display({
+    id: 'open',
+    header: () => <Heading id="open" />,
+    cell: ({ row }) => <OpenCase row={row.original} />,
+    enableSorting: false,
   }),
 ]);
 
@@ -150,7 +149,7 @@ const columns = helper.columns([
  * @param props.cases - Every case.
  * @returns The table.
  */
-export function CaseAdmin(props: { cases: CaseRow[] }) {
+export function CaseAdmin(props: { cases: StaffCaseRow[] }) {
   const t = useTranslations('CaseBank');
   const staff = useTranslations('Staff');
 
@@ -165,12 +164,11 @@ export function CaseAdmin(props: { cases: CaseRow[] }) {
         labels={{
           case: staff('col_case'),
           jurisdictions: staff('col_jurisdictions'),
-          operators: staff('col_operators'),
           victims: staff('col_victims'),
           status: staff('col_status'),
           updated: staff('col_updated'),
-          report: staff('col_report'),
-          analysis: staff('col_analysis'),
+          next: staff('col_next'),
+          open: staff('col_open'),
         }}
         filters={[
           {
@@ -178,6 +176,15 @@ export function CaseAdmin(props: { cases: CaseRow[] }) {
             title: staff('col_status'),
             // Every stage can be picked, so staff can look at just the cases in one of them.
             options: caseStatuses.map((value) => ({ value, label: t(`status_${value}`) })),
+          },
+          {
+            columnId: 'next',
+            title: staff('col_next'),
+            // Staff can look at only the cases that wait on them, or only the ones with a report.
+            options: (['needs_plan', 'agent_working', 'report_saved'] as const).map((value) => ({
+              value,
+              label: staff(`status_${value}`),
+            })),
           },
         ]}
       />

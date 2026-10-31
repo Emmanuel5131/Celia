@@ -1,3 +1,5 @@
+import { confirmedClaimsToBuild } from '@celia/core';
+
 export const caseStatuses = ['collecting', 'building', 'sealed'] as const;
 
 /**
@@ -7,8 +9,7 @@ export const caseStatuses = ['collecting', 'building', 'sealed'] as const;
  */
 export type CaseStatus = (typeof caseStatuses)[number];
 
-/** How many confirmed claims, and how much estimated loss in US dollars, move a case from collecting claims to building evidence. */
-const confirmedClaimsToBuild = 5;
+/** The estimated loss in US dollars that, with enough confirmed claims (`confirmedClaimsToBuild`), moves a case to building evidence. */
 const estimatedLossToBuild = 1000;
 
 /**

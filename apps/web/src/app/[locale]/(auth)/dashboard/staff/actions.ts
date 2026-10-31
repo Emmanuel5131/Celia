@@ -9,6 +9,8 @@ import { setCounselReview } from '@/libs/accounts/CounselProfile';
 import { lookupRegistry, lookupSanctions } from '@/libs/accounts/Lookups';
 import { requireStaff } from '@/libs/accounts/Staff';
 import { recordStaffAction, staffActor } from '@/libs/accounts/StaffAudit';
+import { approveBrief } from '@/libs/analysis/Analysis';
+import { addStatement, removeStatement } from '@/libs/analysis/Statements';
 import { recordCaseEvent } from '@/libs/cases/CaseEvents';
 import { addConfirmedClaim } from '@/libs/cases/Cases';
 import { saveCheckedReport } from '@/libs/cases/Reports';
@@ -852,6 +854,78 @@ export async function disconnectSandworm() {
   await deleteConnection(staff.id);
   await recordStaffAction(db, { actor: staffActor(staff), action: 'sandworm_disconnected' });
   revalidatePath('/', 'layout');
+}
+
+/**
+ * Adds a public statement the platform made to a case, for a check to compare with what the chain shows.
+ * @param caseId - The case id.
+ * @param formData - The form with `kind`, `text` and `sourceUrl`.
+ * @returns The names of what failed: `case`, `invalid`, `words` (a wording the report would refuse) or `full`; none when added.
+ */
+export async function addPlatformStatement(caseId: string, formData: FormData) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success) {
+    return ['case'];
+  }
+
+  const field = (name: string) => {
+    const entry = formData.get(name);
+
+    return typeof entry === 'string' && entry.trim() !== '' ? entry : undefined;
+  };
+
+  const result = await addStatement({
+    caseId,
+    input: {
+      kind: field('kind'),
+      text: field('text'),
+      sourceUrl: field('sourceUrl'),
+    },
+    actor: staffActor(staff),
+  });
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+/**
+ * Removes a platform statement from a case.
+ * @param caseId - The case id.
+ * @param statementId - The statement id.
+ */
+export async function removePlatformStatement(caseId: string, statementId: string) {
+  const staff = await requireStaff();
+
+  if (z.uuid().safeParse(caseId).success && z.uuid().safeParse(statementId).success) {
+    await removeStatement({ caseId, id: statementId, actor: staffActor(staff) });
+    revalidatePath('/', 'layout');
+  }
+}
+
+/**
+ * Approves the analysis brief for a case: the decision to spend the compute. Preflight runs again first, so a brief that no longer
+ * passes is not approved. Only a person can do this; the assistant has no tool for it.
+ * @param caseId - The case id.
+ * @returns `approved` with the run number, `blocked` with what stops it, or `missing` when there is no such case.
+ */
+export async function approveAnalysisBrief(caseId: string) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success) {
+    return { status: 'missing' as const };
+  }
+
+  const result = await approveBrief({ caseId, actor: staffActor(staff) });
+  revalidatePath('/', 'layout');
+
+  if (!result) {
+    return { status: 'missing' as const };
+  }
+
+  return result.status === 'approved'
+    ? { status: 'approved' as const, run: result.approved.run }
+    : { status: 'blocked' as const, problems: result.problems };
 }
 
 /**

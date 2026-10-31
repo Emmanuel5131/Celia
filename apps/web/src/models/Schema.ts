@@ -1,11 +1,13 @@
 import type {
   AccountKind,
+  Brief,
   ChainId,
   ContactChannel,
   FraudType,
   NotificationType,
   OptionalCategory,
   PaymentMethod,
+  StatementKind,
   WalletApp,
   WalletType,
 } from '@celia/core';
@@ -522,7 +524,10 @@ export type StaffAction =
   | 'application_rejected'
   | 'sandworm_connected'
   | 'sandworm_disconnected'
-  | 'sandworm_called';
+  | 'sandworm_called'
+  | 'statement_added'
+  | 'statement_removed'
+  | 'analysis_brief_approved';
 
 /**
  * A staff member's sign-in to Sandworm, so Celia can call the Sandworm MCP as them. A refresh token is a full Sandworm login, so
@@ -544,6 +549,55 @@ export const sandwormConnectionSchema = pgTable('sandworm_connection', {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+/**
+ * A public statement a platform made, which a check compares with what the chain shows. Staff enter it with where it was said.
+ * It is never a claimant's own words, which are private. `kind` says which tests can answer it.
+ */
+export const caseStatementSchema = pgTable(
+  'case_statement',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    kind: text('kind').$type<StatementKind>().notNull(),
+    text: text('text').notNull(),
+    /** Where the platform said it. https only. */
+    sourceUrl: text('source_url').notNull(),
+    saidOn: date('said_on', { mode: 'string' }),
+    /** The Clerk user id of the staff member who entered it. */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('case_statement_case').on(table.caseId)],
+);
+
+/**
+ * A brief staff approved for a case: exactly what Celia asks Sandworm to analyse. The commitment is a hash of the brief and the
+ * template pin, stored with its time before the run starts, so the method is fixed before the data is read. Rows are only added.
+ */
+export const caseAnalysisSchema = pgTable(
+  'case_analysis',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => caseSchema.id),
+    /** 1 for the first brief approved for the case, then 2 and so on. */
+    run: integer('run').notNull(),
+    brief: jsonb('brief').$type<Brief>().notNull(),
+    templateId: text('template_id').notNull(),
+    templateVersion: text('template_version').notNull(),
+    /** SHA-256 of the canonical JSON of the brief and the template pin, as `0x` and 64 hex characters. */
+    commitment: text('commitment').notNull(),
+    approvedBy: text('approved_by').notNull(),
+    approvedAt: timestamp('approved_at', { mode: 'date', withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [unique('case_analysis_run').on(table.caseId, table.run)],
+);
 
 /**
  * The record of what staff did: who, what, to which thing and when. Rows are only ever added, never changed or removed by the

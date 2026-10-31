@@ -47,3 +47,25 @@ Professionals and institutions apply through `/join` and onboarding. Each applic
 | `OPENSANCTIONS_API_KEY` | Sanctions lookup. Without it the lookup shows "Not set up". |
 
 Approving an application opens access straight away; send the invoice yourself. A lookup is a reading aid: staff still tick each check, because names collide and registries lag.
+
+## Cases and their analysis
+
+**Staff, Cases** lists every case with one status and one button. The status says what is next:
+
+| Status | Meaning | What staff do |
+|---|---|---|
+| Needs a plan | No analysis has been planned | Open the case and plan it |
+| Waiting for the agent | A plan was approved and no report followed | Give the assistant the sentence on the case page |
+| Report saved | A report was saved after the last plan, or by hand | Review it |
+
+**The case page** (`/dashboard/staff/cases/<id>`) shows three steps (plan, the agent runs it, review) and expands only the current one.
+Staff do two things: say what the platform claimed (1 to 5 public statements, each with a link and a topic they choose, never guessed),
+and approve the plan. Everything after that is the assistant's work, run through Celia's MCP tools, and it saves a report only after
+the staff member agrees in the chat.
+
+- A case that is not ready (too few confirmed claims, no test template, sealed, or no readable chain) shows why and no form, because
+  those are not things staff can fix on the page.
+- **Who is behind the platform** is optional notes on who claimants allege runs it, shown to lawyers as alleged. The agent does not
+  need them.
+- **Add a report by hand** is for when the assistant is not used: paste the findings JSON. It is folded away on purpose.
+- Approving a plan is a person's step only. No tool the assistant has can do it, and it is written to the staff activity.

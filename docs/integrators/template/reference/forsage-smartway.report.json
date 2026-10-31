@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "headline": "The chain shows 30 wallets paying 6.25 ETH into this early Forsage contract and 14 wallets receiving 6.05 ETH from it, with 3.2% kept by the contract. It does not show who ran it or why.",
+  "figures": [
+    {
+      "label": "Wallets that paid in",
+      "value": "30"
+    },
+    {
+      "label": "Paid in",
+      "value": "6.25 ETH"
+    },
+    {
+      "label": "Paid out",
+      "value": "6.05 ETH"
+    },
+    {
+      "label": "Share kept",
+      "value": "3.2%",
+      "note": "by the contract, of what it received"
+    }
+  ],
+  "checks": [
+    {
+      "claim": "A Forsage founder said in a video, as quoted in the SEC complaint: \"Here everyone decides for themselves when to withdraw, hold, no hold, and so on.\"",
+      "evidence": "Payouts were made in 1 of the 1 days that had payments in. 119 payouts were sent to 14 wallets.",
+      "result": "proven",
+      "tests": [
+        "withdrawals-by-day"
+      ]
+    },
+    {
+      "claim": "A Forsage founder said in an interview, as quoted in the SEC complaint: \"Forsage does not accumulate funds; its balance is always zero.\"",
+      "evidence": "The tests in this version ask whether the contract holds funds, not whether it passes them on, so they make no finding on this statement.",
+      "result": "not_checkable"
+    }
+  ],
+  "tests": [
+    {
+      "id": "inflow-outflow",
+      "title": "Money in and out",
+      "summary": "92 payments from 30 wallets brought in 6.25 ETH. 119 payouts to 14 wallets sent out 6.05 ETH, so the contract kept 3.2% of what it received.",
+      "columns": [
+        "Measure",
+        "Value"
+      ],
+      "rows": [
+        [
+          "Wallets that paid in",
+          "30"
+        ],
+        [
+          "Payments in",
+          "92"
+        ],
+        [
+          "Paid in (ETH)",
+          "6.25"
+        ],
+        [
+          "Wallets paid out to",
+          "14"
+        ],
+        [
+          "Payouts",
+          "119"
+        ],
+        [
+          "Paid out (ETH)",
+          "6.05"
+        ],
+        [
+          "Share kept by the contract",
+          "3.2%"
+        ],
+        [
+          "First payment in",
+          "2020-01-20"
+        ],
+        [
+          "Last payment in",
+          "2020-01-20"
+        ]
+      ]
+    },
+    {
+      "id": "withdrawals-by-day",
+      "title": "Withdrawals by day",
+      "summary": "Payouts were made in 1 of the 1 days that had payments in.",
+      "columns": [
+        "Day",
+        "Payments in",
+        "Payouts"
+      ],
+      "rows": [
+        [
+          "2020-01-20",
+          "92",
+          "119"
+        ]
+      ]
+    },
+    {
+      "id": "concentration",
+      "title": "Who the money depends on",
+      "summary": "The five largest recipients received 90.5% of payouts, and the five largest payers supplied 34.4% of payments in.",
+      "columns": [
+        "Measure",
+        "Share"
+      ],
+      "rows": [
+        [
+          "Largest recipient, share of payouts",
+          "52.1%"
+        ],
+        [
+          "Five largest recipients, share of payouts",
+          "90.5%"
+        ],
+        [
+          "Largest payer, share of payments in",
+          "12.0%"
+        ],
+        [
+          "Five largest payers, share of payments in",
+          "34.4%"
+        ]
+      ]
+    },
+    {
+      "id": "payout-source",
+      "title": "Where payouts came from",
+      "summary": "This version does not test where payouts came from, so it makes no finding on it.",
+      "columns": [
+        "Measure",
+        "Value"
+      ],
+      "rows": [
+        [
+          "Status",
+          "Not built in this version"
+        ]
+      ]
+    }
+  ],
+  "method": {},
+  "dataAsOf": "2026-10-31T00:46:17Z",
+  "sources": [
+    "Blockscout public API for Ethereum",
+    "SEC v. Okhotnikov et al., 1:22-cv-03978, Document 1"
+  ]
+}
