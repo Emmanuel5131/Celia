@@ -27,6 +27,8 @@ route, so a tool that is not listed for a role is never reachable by it.
 | `get_case_claims` | `/api/mcp/firm/cases/:id/claims` | | a case their firm leads | |
 | `staff_overview` | `/api/mcp/staff/overview` | yes | | |
 | `list_claims_to_review` | `/api/mcp/staff/claims` | yes | | |
+| `list_claims` | `/api/mcp/staff/claims/all?page=&search=` | yes | | |
+| `get_case_claim_accounts` | `/api/mcp/staff/cases/:id/claims?page=` | yes | | |
 | `get_report_format` | `/api/mcp/staff/report-format` | yes | | |
 | `sandworm_list_tools` | `/api/mcp/staff/sandworm/tools` | yes | | |
 | `sandworm_call` (**writes**) | `POST /api/mcp/staff/sandworm/call` | yes | | |
@@ -63,3 +65,11 @@ This has not been run against a live Clerk instance yet. The first sign-in is th
 Add a route under `apps/web/src/app/api/mcp/`, start it with `identifyMcpCaller()` and check the role it needs, then register the
 tool in `apps/mcp/src/tools/` and add it to the right role in `toolSets`. A tool that changes anything must also write a
 `staff_audit` row on the web side.
+
+- **`list_claims`** reads every claim, 25 to a page, searchable by the platform, person or group name or the contact handle. No
+  claimant name, email, wallet, transaction, proof or account.
+- **`get_case_claim_accounts`** reads one case's claims with each claimant's own account of what happened, so the assistant can
+  propose **alleged actions** from them. The accounts are free text and can hold a name or a wallet; the tool description tells the
+  assistant to copy neither and to show the staff member each proposed action before `add_alleged_action`. It is staff only.
+- **`review_evidence`** records the review of off-chain evidence (reviewed, or unverified) with a note. Like every change, it asks for
+  a summary first and runs only with `confirmed: true`.

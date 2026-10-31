@@ -1,4 +1,4 @@
-# Celia analysis template: investment-platform 1.0.0
+# Celia analysis template: investment-platform 1.1.0
 #
 # What it is: the fixed set of tests Celia runs on an investment platform (the Ponzi pattern), written as notebook cells. A run reads
 # the platform's addresses and the window from the approved brief, reads the chain, and writes ONE findings file that Celia reads back.
@@ -11,14 +11,14 @@
 #     where params.json holds those names, for example docs/integrators/template/params.forsage-smartway.json
 #
 # What each test answers (the verdict is a plain rule from the numbers, fixed here and never decided afterwards):
-#   inflow-outflow      "Does the contract hold the funds it receives?"        proven >= 50% kept, partly >= 10%, else not proven
-#   withdrawals-by-day  "Were payouts made whenever payments came in?"        proven if every period with payments in had payouts
+#   inflow-outflow      "Does the contract hold the funds it receives?"        proven >= 50% kept, partly >= 10%, else proven false
+#   withdrawals-by-day  "Were payouts made whenever payments came in?"        proven if every period with payments in had payouts, proven false if none did
 #   concentration       "Do payouts depend on a few wallets?"                  proven if the top 5 got < 50%, partly < 80%, else not proven
 #   payout-source       not built in this version                              not checkable
 # A statement whose claim is the OPPOSITE of what a test asks (for example "the balance is always zero") is entered as "something
 # else" in Celia and is not checked by this version.
 #
-# Limits of version 1.0.0: native coin only (ETH on Ethereum); token transfers are not read. Each run reads at most MAX_PAGES pages
+# Limits of version 1.1.0: native coin only (ETH on Ethereum); token transfers are not read. Each run reads at most MAX_PAGES pages
 # per address and kind; if the window is bigger, the run says so and every verdict becomes "not checkable" rather than guessing.
 # Wallet addresses of the people who paid in or were paid out never go into the findings: only counts and shares.
 
@@ -34,7 +34,7 @@ import urllib.request
 from decimal import Decimal
 
 TEMPLATE_ID = 'investment-platform'
-TEMPLATE_VERSION = '1.0.0'
+TEMPLATE_VERSION = '1.1.0'
 
 PARAMETERS = {
     'CASE_NUMBER': 'cb-0000',  # lower case, as in the brief
@@ -195,7 +195,7 @@ def test_inflow_outflow():
     elif ratio >= Decimal('0.1'):
         verdict = 'partly_proven'
     else:
-        verdict = 'not_proven'
+        verdict = 'proven_false'
     firsts = [stamp(r) for r in inflows]
     rows = [
         ['Wallets that paid in', str(len(payers))],
@@ -244,7 +244,7 @@ def test_withdrawals_by_day():
     elif covered:
         verdict = 'partly_proven'
     else:
-        verdict = 'not_proven'
+        verdict = 'proven_false'
     rows = [[k, str(counts[k][0]), str(counts[k][1])] for k in sorted(counts)][:50]
     summary = f'Payouts were made in {len(covered)} of the {len(with_payments)} {unit} that had payments in.'
     return {'id': 'withdrawals-by-day', 'title': 'Withdrawals by day', 'summary': summary, 'verdict': verdict,

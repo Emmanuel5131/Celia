@@ -33,7 +33,7 @@ version leaves it not checkable, and the run should show that.
 
 1. Sign in as staff (`staff+clerk_test@example.com`, code `424242`) and open the case:
    `http://localhost:3000/dashboard/staff/cases/fcbf3216-e703-4776-8673-c327aca382ea`
-2. You should see **Plan the analysis**, the two statements, and **What the agent will look at**: method `investment-platform 1.0.0`,
+2. You should see **Plan the analysis**, the two statements, and **What the agent will look at**: method `investment-platform 1.1.0`,
    dates **2020-01-20 → 2020-02-20**, one address, four checks. A note says one statement has no test.
 3. Press **Approve plan**. The page changes to **Plan approved** and shows the sentence for your assistant.
 

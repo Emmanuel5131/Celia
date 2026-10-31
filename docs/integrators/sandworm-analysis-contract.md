@@ -135,7 +135,7 @@ Each **test** in a template declares:
 | `backs` | The kinds of platform statement it can answer |
 | `thresholds` | Numbers fixed in advance, with the reason for each |
 | `output` | The table: column names, at most 8 columns, at most 50 rows |
-| `verdict` | A plain rule from the numbers to `proven`, `partly_proven`, `not_proven` or `not_checkable` |
+| `verdict` | A plain rule from the numbers to `proven`, `proven_false`, `partly_proven`, `not_proven` or `not_checkable`. `proven_false` is about the statement only: the chain shows it is false, which says nothing about intent |
 | `summary` | A sentence built from the numbers by code (an f-string), so the figures in the words cannot drift |
 | `chart` | Optional: a small chart spec (section 7) |
 
@@ -172,7 +172,7 @@ Sandworm's side is a `get_cell_output(notebookId, cellId, outputIndex, offset)` 
   "celia": 1,
   "run": {
     "templateId": "investment-platform",
-    "templateVersion": "1.0.0",
+    "templateVersion": "1.1.0",
     "notebookUrl": "https://…",
     "attestation": { "codeHash": "0x…", "inputHash": "0x…", "requestHash": "0x…", "requestTx": "0x…" },
     "dataAsOf": "2026-10-31T10:00:00Z"
@@ -372,3 +372,10 @@ Round 1, from the Sandworm repo, 2026-10-31. Read from the code; **none of it wa
 | 8 | A run carries no compute or credit figure. Fixed limits: 300 seconds per cell, 200 cells per run, 45 seconds per tool call. No per-run row or time limit can be set. Real cost is third-party (Nansen credits, Etherscan 3 calls a second). Dune needs Pro, and Sandworm Cloud a paid plan. | Cost limits live in Celia and in the template (section 11). |
 | 9 | Yes. Workspace visibility is the default, and nothing is public unless published or attested. Leaks remain: the MCP call log is saved to a chat on the notebook, and runs happen on Sandworm's infrastructure. | Per-victim loss is possible but deferred (section 12). |
 | 10 | Charts: yes, in notebook code with no Sandworm change; explicit colours survive the display rewrite. The page's purple is hard-coded, with no theme parameter and no embed. | Charts take Celia's colours in code; the page stays purple (section 9). |
+
+## One statement, one analysis
+
+A case is a group of analyses, one for each statement the platform made. Each has its own approved plan (and commitment), its own
+notebook and its own report; the report holds exactly one check, and `method.commitment` names the plan it ran, which is how Celia
+finds the statement it answers. A statement is planned with only the tests that can answer it. `get_analysis_brief` lists the plans
+waiting for a report and takes a `run` when more than one waits. Versions of a report are counted for each analysis.

@@ -50,7 +50,7 @@ Nothing here calls an analysis service yet: someone pastes the JSON in. Producin
 }
 ```
 
-- `result` is one of `proven`, `partly_proven`, `not_proven`, `not_checkable`. Use `not_checkable` for what the chain cannot show (a bank transfer, a card payment, a promise made in chat). Never guess.
+- `result` is one of `proven` (the chain bears the statement out), `proven_false` (the chain shows the statement is false), `partly_proven`, `not_proven` (the chain does not settle it), `not_checkable`. Use `not_checkable` for what the chain cannot show (a bank transfer, a card payment, a promise made in chat). Never guess.
 - Each check lists the `tests` (by `id`) that back it. The app rejects a check that names a test the report does not have, and two tests with the same `id`.
 - **Every test carries a table**: 1 to 8 columns and 1 to 50 rows, every row as wide as the headings. The app refuses to save a report with a test that has none. Reports saved earlier still open, with a note where a test has no table.
 - `proof` is optional and is for links **outside** Celia, such as one transaction on a block explorer: up to 5 per check, https only.

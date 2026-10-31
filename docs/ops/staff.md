@@ -54,14 +54,20 @@ Approving an application opens access straight away; send the invoice yourself. 
 
 | Status | Meaning | What staff do |
 |---|---|---|
-| Needs a plan | No analysis has been planned | Open the case and plan it |
-| Waiting for the agent | A plan was approved and no report followed | Give the assistant the sentence on the case page |
-| Report saved | A report was saved after the last plan, or by hand | Review it |
+| Needs a plan | No statement has a plan yet | Open the case and pick a statement |
+| Waiting for the agent | A plan was approved and no report followed | Give the assistant the sentence on that statement's page |
+| Report saved | Every planned statement has a report | Review them, or plan another statement |
 
-**The case page** (`/dashboard/staff/cases/<id>`) shows three steps (plan, the agent runs it, review) and expands only the current one.
-Staff do two things: say what the platform claimed (1 to 5 public statements, each with a link and a topic they choose, never guessed),
-and approve the plan. Everything after that is the assistant's work, run through Celia's MCP tools, and it saves a report only after
-the staff member agrees in the chat.
+**Each statement of the platform is its own analysis.** A case has a group of them, and together they show what the chain shows. A
+statement has its own plan, its own notebook, its own report (with its own versions) and its own page; nothing is shared. Lawyers see
+the group as a list (`/dashboard/cases/<id>/analysis`) and open each report on its own page (`.../analysis/<run>`). A statement nobody
+has researched yet shows "Not researched yet", not a verdict: it is up to staff and the assistant to start it. A statement no test
+can answer (a topic of "something else") shows "Not on chain" and has nothing to run.
+
+**The case page** (`/dashboard/staff/cases/<id>`) lists the statements with where each stands, and a form to add one (1 to 5 public
+statements, each with a link and a topic staff choose, never guessed). Opening a statement (`.../research/<statement id>`) is where
+staff plan and approve its research, then, once the assistant has run it, review its report. Everything after approval is the
+assistant's work, run through Celia's MCP tools, and it saves a report only after the staff member agrees in the chat.
 
 - A case that is not ready (too few confirmed claims, no test template, sealed, or no readable chain) shows why and no form, because
   those are not things staff can fix on the page.
