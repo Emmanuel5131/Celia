@@ -1,24 +1,21 @@
 /**
- * Where a case stands with its analysis, in the words staff use: it needs a plan, the agent is working on an approved plan, or a
- * report is saved.
+ * Where a case stands with its research, in the words staff use: nothing is planned yet, the agent is working on a statement that
+ * has no report, or every statement that was planned has a report.
  */
 export type AnalysisStatus = 'needs_plan' | 'agent_working' | 'report_saved';
 
 /**
- * Works out where a case stands from two times. A plan approved after the newest report means the agent is working on a new run,
- * even when an older report exists. A report with no plan (saved by hand, or before plans existed) counts as saved.
- * @param times - When the newest plan was approved and when the newest report was saved, as ISO times, or null for neither.
- * @param times.approvedAt - The newest approval.
- * @param times.reportAt - The newest report.
+ * Works out where a case stands from how many statements were planned and how many of those have a report. Each statement is
+ * researched on its own, so a case is still working while any approved plan waits for its report, even when others are done.
+ * @param counts - The statements with an approved plan and, of those, the ones with a saved report.
+ * @param counts.planned - How many statements have an approved plan.
+ * @param counts.reported - How many of them have a saved report.
  * @returns The status.
  */
-export function analysisStatus(times: { approvedAt: string | null; reportAt: string | null }) {
-  if (
-    times.approvedAt &&
-    (!times.reportAt || new Date(times.reportAt) < new Date(times.approvedAt))
-  ) {
+export function analysisStatus(counts: { planned: number; reported: number }) {
+  if (counts.planned > counts.reported) {
     return 'agent_working' as const;
   }
 
-  return times.reportAt ? ('report_saved' as const) : ('needs_plan' as const);
+  return counts.reported > 0 ? ('report_saved' as const) : ('needs_plan' as const);
 }

@@ -1,4 +1,5 @@
 import { desc } from 'drizzle-orm';
+import { actingStaff } from '@/libs/accounts/ActingContext';
 import { db } from '@/libs/DB';
 import type { Executor } from '@/libs/notifications/Notify';
 import { staffAuditSchema } from '@/models/Schema';
@@ -25,6 +26,9 @@ export function staffActor(user: {
  * @param entry.action - What they did.
  * @param entry.target - What it was done to.
  * @param entry.details - Ids and short codes only, never a person's claim.
+ *
+ * A change made through the MCP server is recorded as the person who signed in to it, with `via: mcp` added, so the record reads as
+ * that person acting through an assistant.
  */
 export async function recordStaffAction(
   executor: Executor,
@@ -41,7 +45,7 @@ export async function recordStaffAction(
     action: entry.action,
     targetType: entry.target?.type ?? null,
     targetId: entry.target?.id ?? null,
-    details: entry.details ?? {},
+    details: { ...entry.details, ...(actingStaff.getStore() && { via: 'mcp' }) },
   });
 }
 
@@ -61,6 +65,8 @@ export async function listStaffAudit(limit = 100) {
     id: row.id,
     actor: row.actorEmail ?? row.actorId,
     action: row.action,
+    // Whether the person acted through an assistant on the MCP server.
+    via: row.details.via === 'mcp' ? ('mcp' as const) : null,
     target: row.targetType && row.targetId ? `${row.targetType} ${row.targetId.slice(0, 8)}` : null,
     at: row.createdAt.toISOString(),
   }));

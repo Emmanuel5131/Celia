@@ -140,6 +140,7 @@ function matching(search: string): SQL | undefined {
 
   return or(
     ilike(claimSchema.platformName, pattern),
+    ilike(claimSchema.operatorHandle, pattern),
     ilike(claimSchema.walletAddress, pattern),
     ilike(claimSchema.txHash, pattern),
     ilike(claimSchema.fundingTxHash, pattern),
@@ -149,40 +150,21 @@ function matching(search: string): SQL | undefined {
 
 const iso = (date: Date | null) => date?.toISOString() ?? null;
 
+type ClaimRow = typeof claimSchema.$inferSelect;
+
 /**
- * One page of the register: every claim in the case bank, newest first, whatever state it is in, with all that is held about each.
- * It is for staff only: it carries claimants' names, emails, wallets and statements. Names and emails come from Clerk, and a
- * claimant Clerk does not know (a sample one) has none.
- * @param options - What to show.
- * @param options.state - Keep only the claims in this state.
- * @param options.search - Keep only the claims matching this text.
- * @param options.page - The page, from 1.
- * @returns The claims on the page and how many claims match in all.
+ * Turns claim rows into the records staff read: the signals, the proof files, and the name and email from Clerk.
+ * @param rows - The claim rows, without the nonce and the signature.
+ * @returns The records, in the order of the rows.
  */
-export async function listClaimRegister(options: {
-  state: RegisterState;
-  search: string;
-  page: number;
-}) {
-  const where = and(inState(options.state), matching(options.search));
-  // The nonce and the signature are never read, so they cannot reach a page by mistake.
-  const { nonce: _nonce, signature: _signature, ...columns } = getTableColumns(claimSchema);
-  const [rows, [total]] = await Promise.all([
-    db
-      .select(columns)
-      .from(claimSchema)
-      .where(where)
-      .orderBy(desc(sql`coalesce(${claimSchema.submittedAt}, ${claimSchema.createdAt})`))
-      .limit(registerPageSize)
-      .offset((options.page - 1) * registerPageSize),
-    db.select({ total: count() }).from(claimSchema).where(where),
-  ]);
+async function toRecords(rows: Omit<ClaimRow, 'nonce' | 'signature'>[]) {
   const [signals, files, users] = await Promise.all([
     signalsFor(rows),
     listProofFilesFor(rows.map((row) => row.id)),
     getUsersById(rows.map((row) => row.userId)),
   ]);
-  const records = rows.map((row): ClaimRecord => {
+
+  return rows.map((row): ClaimRecord => {
     const user = users.get(row.userId);
 
     return {
@@ -236,6 +218,87 @@ export async function listClaimRegister(options: {
       files: files.get(row.id) ?? [],
     };
   });
+}
+
+/**
+ * One page of the register: every claim in the case bank, newest first, whatever state it is in, with all that is held about each.
+ * It is for staff only: it carries claimants' names, emails, wallets and statements. Names and emails come from Clerk, and a
+ * claimant Clerk does not know (a sample one) has none.
+ * @param options - What to show.
+ * @param options.state - Keep only the claims in this state.
+ * @param options.search - Keep only the claims matching this text.
+ * @param options.page - The page, from 1.
+ * @returns The claims on the page and how many claims match in all.
+ */
+export async function listClaimRegister(options: {
+  state: RegisterState;
+  search: string;
+  page: number;
+}) {
+  const where = and(inState(options.state), matching(options.search));
+  // The nonce and the signature are never read, so they cannot reach a page by mistake.
+  const { nonce: _nonce, signature: _signature, ...columns } = getTableColumns(claimSchema);
+  const [rows, [total]] = await Promise.all([
+    db
+      .select(columns)
+      .from(claimSchema)
+      .where(where)
+      .orderBy(desc(sql`coalesce(${claimSchema.submittedAt}, ${claimSchema.createdAt})`))
+      .limit(registerPageSize)
+      .offset((options.page - 1) * registerPageSize),
+    db.select({ total: count() }).from(claimSchema).where(where),
+  ]);
+  const records = await toRecords(rows);
 
   return { records, total: total?.total ?? 0 };
 }
+
+/**
+ * One claim in the case bank with all that is held about it, for staff, in any state.
+ * @param id - The claim id.
+ * @returns The record, or null when there is no such claim.
+ */
+export async function getClaimRecord(id: string) {
+  const { nonce: _nonce, signature: _signature, ...columns } = getTableColumns(claimSchema);
+  const [row] = await db.select(columns).from(claimSchema).where(eq(claimSchema.id, id)).limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  const [record] = await toRecords([row]);
+
+  return record ?? null;
+}
+
+/**
+ * The other claims one person has filed, newest first, so staff can see whether a claimant has filed before.
+ * @param userId - The Clerk user id of the person.
+ * @param exceptId - The claim being read, which is left out.
+ * @returns The other claims, with the little needed to list them.
+ */
+export async function listClaimsByPerson(userId: string, exceptId: string) {
+  const rows = await db
+    .select({
+      id: claimSchema.id,
+      platformName: claimSchema.platformName,
+      status: claimSchema.status,
+      validatedAt: claimSchema.validatedAt,
+      rejectedAt: claimSchema.rejectedAt,
+      staffReviewStartedAt: claimSchema.staffReviewStartedAt,
+      submittedAt: claimSchema.submittedAt,
+      createdAt: claimSchema.createdAt,
+    })
+    .from(claimSchema)
+    .where(and(eq(claimSchema.userId, userId), ne(claimSchema.id, exceptId)))
+    .orderBy(desc(sql`coalesce(${claimSchema.submittedAt}, ${claimSchema.createdAt})`));
+
+  return rows.map((row) => ({
+    id: row.id,
+    platformName: row.platformName,
+    state: claimState(row),
+    at: (row.submittedAt ?? row.createdAt).toISOString(),
+  }));
+}
+
+export type PersonClaim = Awaited<ReturnType<typeof listClaimsByPerson>>[number];

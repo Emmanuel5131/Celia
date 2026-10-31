@@ -1,8 +1,12 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { DemoBanner } from '@/components/DemoBanner';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { Link } from '@/libs/I18nNavigation';
 import { BaseTemplate } from '@/templates/BaseTemplate';
+
+// These pages are the starter's demo pages, not Celia's: they stay out of search results.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function Layout(props: {
   children: React.ReactNode;
@@ -29,11 +33,6 @@ export default async function Layout(props: {
             <li>
               <Link href="/about/" className="border-none text-gray-700 hover:text-gray-900">
                 {t('about_link')}
-              </Link>
-            </li>
-            <li>
-              <Link href="/counter/" className="border-none text-gray-700 hover:text-gray-900">
-                {t('counter_link')}
               </Link>
             </li>
             <li>

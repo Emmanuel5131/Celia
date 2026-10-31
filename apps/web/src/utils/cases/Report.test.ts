@@ -10,7 +10,7 @@ const report = {
     {
       claim: 'Withdrawals are always available.',
       evidence: 'No withdrawals appear after the 14th of September.',
-      result: 'proven',
+      result: 'proven_false',
       tests: ['funding-trail'],
     },
   ],
@@ -26,7 +26,7 @@ const report = {
       ],
     },
   ],
-  method: {},
+  method: { notebookUrl: 'https://example.com/notebook/abc', commitment: `0x${'a'.repeat(64)}` },
   dataAsOf: '2026-10-27T10:00:00Z',
   sources: ['Solana RPC'],
 };
@@ -246,6 +246,24 @@ describe(readNewReport, () => {
     const { columns: _columns, rows: _rows, ...bare } = report.tests[0] ?? {};
 
     expect(readNewReport({ ...report, tests: [bare] })).toStrictEqual({ problem: 'table' });
+  });
+
+  it('refuses a report with no notebook', () => {
+    expect(
+      readNewReport({ ...report, method: { commitment: report.method.commitment } }),
+    ).toStrictEqual({ problem: 'notebook' });
+  });
+
+  it('refuses a report with no commitment', () => {
+    expect(
+      readNewReport({ ...report, method: { notebookUrl: report.method.notebookUrl } }),
+    ).toStrictEqual({ problem: 'analysis' });
+  });
+
+  it('refuses a report with more than one check', () => {
+    expect(
+      readNewReport({ ...report, checks: [...report.checks, ...report.checks] }),
+    ).toStrictEqual({ problem: 'one_check' });
   });
 
   it('refuses an estimate with no readable dollar amount', () => {

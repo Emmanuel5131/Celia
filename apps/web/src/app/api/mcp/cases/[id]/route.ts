@@ -1,7 +1,14 @@
 import * as z from 'zod';
 import { getCase, listAffectedCountries } from '@/libs/cases/Cases';
 import { getReport } from '@/libs/cases/Reports';
-import { identifyMcpCaller, notFound, privateJson, unauthorized } from '@/libs/mcp/McpCaller';
+import {
+  identifyMcpCaller,
+  mcpCaseAccess,
+  notFound,
+  privateJson,
+  unauthorized,
+} from '@/libs/mcp/McpCaller';
+import { previewRows } from '@/utils/cases/Preview';
 
 /**
  * One case for the MCP server: its summary, where its victims are as counts, who is alleged to have run the platform, and the
@@ -14,7 +21,9 @@ import { identifyMcpCaller, notFound, privateJson, unauthorized } from '@/libs/m
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  if (!(await identifyMcpCaller())) {
+  const caller = await identifyMcpCaller();
+
+  if (!caller) {
     return unauthorized();
   }
 
@@ -25,6 +34,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
 
   const { platformKey: _platformKey, ...summary } = found;
+  const operators =
+    mcpCaseAccess(caller) === 'full' ? summary.operators : summary.operators.slice(0, previewRows);
   const [affected, report] = await Promise.all([
     listAffectedCountries(found.id),
     found.hasReport ? getReport(found.id) : null,
@@ -32,6 +43,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   return privateJson({
     ...summary,
+    operators,
     victimsByCountry: affected,
     reportHeadline: report?.snapshot.headline ?? null,
   });

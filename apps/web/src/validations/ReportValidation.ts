@@ -1,7 +1,17 @@
 import * as z from 'zod';
 
-/** What the chain showed about one thing a platform said. `not_checkable` means the chain cannot show it, so it is not guessed. */
-export const checkResults = ['proven', 'partly_proven', 'not_proven', 'not_checkable'] as const;
+/**
+ * What the chain showed about one thing a platform said. `proven` means the chain bears the statement out and `proven_false` that
+ * the chain shows it to be false: both are about the statement, never about intent. `not_proven` means the chain does not settle
+ * it, and `not_checkable` that the chain cannot show it, so it is not guessed.
+ */
+export const checkResults = [
+  'proven',
+  'proven_false',
+  'partly_proven',
+  'not_proven',
+  'not_checkable',
+] as const;
 
 export type CheckResult = (typeof checkResults)[number];
 
@@ -27,6 +37,34 @@ const ProofValidation = z.object({
 const idPattern = /^[a-z\d-]{1,40}$/u;
 
 /**
+ * A small chart of one test, as data: Celia draws it with its own colours, so a chart never depends on the notebook being online.
+ * At most 30 points and 4 series, so it stays small and readable. `unit` is shown beside each number, such as `ETH` or `%`.
+ */
+export const ChartValidation = z
+  .object({
+    type: z.enum(['bar', 'line']),
+    title: text(80).optional(),
+    unit: text(12).optional(),
+    x: z.array(text(40)).min(1).max(30),
+    series: z
+      .array(
+        z.object({
+          name: text(40),
+          values: z.array(z.number()).min(1).max(30),
+        }),
+      )
+      .min(1)
+      .max(4),
+    /** A fixed threshold the finding is measured against, drawn as the seal-red dashed line. */
+    threshold: z.object({ value: z.number(), label: text(40) }).optional(),
+  })
+  .refine((chart) => chart.series.every((series) => series.values.length === chart.x.length), {
+    message: 'chart_shape',
+  });
+
+export type Chart = z.infer<typeof ChartValidation>;
+
+/**
  * One test that was run, with its output kept inside the report. A check points at the tests that back it, so a lawyer can go
  * from a finding to the numbers behind it without leaving Celia.
  */
@@ -43,6 +81,10 @@ const TestValidation = z
       .array(z.array(text(120)).max(8))
       .max(50)
       .optional(),
+    /** Charts the notebook drew, as data. Up to 3 per test. */
+    charts: z.array(ChartValidation).max(3).optional(),
+    /** The notebook's own words about the test: how it was measured, the fixed rule behind its verdict, its limits. Up to 5 short notes. */
+    notes: z.array(text(300)).max(5).optional(),
   })
   .refine(
     (test) =>
@@ -132,12 +174,15 @@ export const ReportValidation = z
 
 /**
  * What a new report must satisfy: every test has a table, with columns and at least one row, so the analysis shows the numbers
- * behind each finding. Reports saved before this rule still read with `ReportValidation`, and show a note where a test has no table.
+ * behind each finding, and it names the one notebook it came from, so anyone can check it. A report answers one statement of the platform, so it holds one check, and it names the approved plan it ran (the commitment), which is how Celia knows which statement it answers. Reports saved before this rule still read with `ReportValidation`, and show a note where a test has no table.
  */
 export const NewReportValidation = ReportValidation.refine(
   (report) => report.tests.every((test) => test.columns && test.rows && test.rows.length > 0),
   { message: 'table_required' },
-);
+)
+  .refine((report) => report.method.notebookUrl !== undefined, { message: 'notebook_required' })
+  .refine((report) => report.checks.length === 1, { message: 'one_check' })
+  .refine((report) => report.method.commitment !== undefined, { message: 'commitment_required' });
 
 export type Report = z.infer<typeof ReportValidation>;
 

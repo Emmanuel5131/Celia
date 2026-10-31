@@ -39,7 +39,9 @@ export async function loadCounselOverview(options: { userId: string }) {
           db
             .select({ caseId: caseReportSchema.caseId, hash: caseReportSchema.hash })
             .from(caseReportSchema)
-            .where(inArray(caseReportSchema.caseId, ids))
+            .where(
+              and(inArray(caseReportSchema.caseId, ids), eq(caseReportSchema.review, 'approved')),
+            )
             .orderBy(desc(caseReportSchema.version)),
         ]);
 

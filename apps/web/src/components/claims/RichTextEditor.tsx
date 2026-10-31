@@ -22,7 +22,7 @@ import { cn } from '@/utils/Cn';
 
 // What the writing area looks like, so a heading, a list, a quote and a link read the way they will for a lawyer.
 const surface =
-  'min-h-96 p-4 text-base outline-none [&>*+*]:mt-3 [&_h2]:text-lg [&_h2]:font-medium [&_h3]:font-medium [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-ink-muted [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4';
+  'p-4 text-base outline-none [&>*+*]:mt-3 [&_h2]:text-lg [&_h2]:font-medium [&_h3]:font-medium [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-ink-muted [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4';
 
 function ToolButton(props: {
   label: string;
@@ -184,6 +184,8 @@ function Toolbar(props: { editor: Editor }) {
  * @param props.name - The form field that receives the text.
  * @param props.defaultValue - The text to start with, as saved.
  * @param props.invalid - Whether the text was refused.
+ * @param props.compact - A writing area four lines tall for an editor inside a dialog: longer text scrolls inside it without a
+ * visible scrollbar.
  * @param props.onChange - Called with the new text, as markdown, after each edit.
  * @returns The editor.
  */
@@ -192,6 +194,7 @@ export function RichTextEditor(props: {
   name: string;
   defaultValue: string;
   invalid?: boolean;
+  compact?: boolean;
   onChange?: (value: string) => void;
 }) {
   const [value, setValue] = React.useState(props.defaultValue);
@@ -217,7 +220,12 @@ export function RichTextEditor(props: {
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-labelledby': props.labelId,
-        class: surface,
+        class: cn(
+          surface,
+          props.compact
+            ? 'max-h-30 min-h-30 overflow-y-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'min-h-96',
+        ),
       },
     },
     onUpdate: ({ editor: current }) => {
@@ -231,7 +239,8 @@ export function RichTextEditor(props: {
   return (
     <div
       className={cn(
-        'min-h-96 border border-input bg-surface focus-within:ring-2 focus-within:ring-ring',
+        'border border-input bg-surface focus-within:ring-2 focus-within:ring-ring',
+        props.compact ? null : 'min-h-96',
         props.invalid && 'border-destructive',
       )}
     >

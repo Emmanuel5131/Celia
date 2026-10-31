@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageSection } from '@/components/layout/PageSection';
-import { ActivityFeed } from '@/components/overview/ActivityFeed';
 import { CaseDataTable } from '@/components/overview/CaseDataTable';
 import { PersonOverview } from '@/components/overview/PersonOverview';
 import { StatCard } from '@/components/overview/StatCard';
@@ -67,25 +66,20 @@ export async function OverviewContent(props: {
             />
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-12">
-            <PageSection
-              title={t('attention_title')}
-              description={t('attention_description')}
-              action={
-                <Link
-                  href="/dashboard/cases"
-                  className="text-sm font-medium text-ink underline underline-offset-4 focus-ring hover:text-ink-muted"
-                >
-                  {t('view_all')}
-                </Link>
-              }
-            >
-              <CaseDataTable cases={overview.attention} variant="compact" />
-            </PageSection>
-            <PageSection title={t('activity_title')}>
-              <ActivityFeed items={overview.activity} />
-            </PageSection>
-          </div>
+          <PageSection
+            title={t('attention_title')}
+            description={t('attention_description')}
+            action={
+              <Link
+                href="/dashboard/cases"
+                className="text-sm font-medium text-ink underline underline-offset-4 focus-ring hover:text-ink-muted"
+              >
+                {t('view_all')}
+              </Link>
+            }
+          >
+            <CaseDataTable cases={overview.attention} variant="compact" />
+          </PageSection>
         </div>
       ) : (
         <PersonOverview userId={props.userId} />

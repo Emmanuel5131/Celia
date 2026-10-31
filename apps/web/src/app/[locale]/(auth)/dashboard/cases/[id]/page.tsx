@@ -5,24 +5,36 @@ import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/serve
 import { notFound } from 'next/navigation';
 import * as z from 'zod';
 import { AffectedJurisdictions } from '@/components/cases/AffectedJurisdictions';
+import { CaseActions } from '@/components/cases/CaseActions';
 import { CaseClaimantsTable } from '@/components/cases/CaseClaimantsTable';
-import type { ClaimantRow } from '@/components/cases/CaseClaimantsTable';
+import { CaseEvidence } from '@/components/cases/CaseEvidence';
+import { ContactClaimantsBox } from '@/components/cases/CaseLocked';
 import { CaseOperators } from '@/components/cases/CaseOperators';
 import { CaseStory } from '@/components/cases/CaseStory';
-import { ReportFigures, ReportSummary } from '@/components/cases/ReportSummary';
+import { ReportFigures } from '@/components/cases/ReportSummary';
+import { ResearchTable } from '@/components/cases/ResearchTable';
 import { TakeCaseDialog } from '@/components/cases/TakeCaseDialog';
+import { ViewAllLink } from '@/components/cases/ViewAllLink';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageSection } from '@/components/layout/PageSection';
 import { StatCard } from '@/components/overview/StatCard';
 import { Button } from '@/components/ui/button';
-import { canViewCaseClaims, listCaseClaims, reportedPattern } from '@/libs/cases/CaseClaims';
+import { readCaseAccess } from '@/libs/accounts/CaseAccess';
+import { listEvidence } from '@/libs/analysis/Evidence';
+import { listResearch } from '@/libs/analysis/Research';
+import { listActions } from '@/libs/cases/Actions';
+import { canViewCaseClaims } from '@/libs/cases/CaseClaims';
 import { evaluateTake, getCase } from '@/libs/cases/Cases';
 import type { CaseDetail } from '@/libs/cases/Cases';
+import { readCaseStory } from '@/libs/cases/CaseStory';
+import { loadClaimantRows } from '@/libs/cases/ClaimantRows';
 import { getReport } from '@/libs/cases/Reports';
-import { claimantNames } from '@/libs/claims/ClaimantNames';
 import { Link } from '@/libs/I18nNavigation';
 import { parseAccount } from '@/utils/accounts/Account';
 import { parseProfile } from '@/utils/accounts/Profile';
+import { actionRows } from '@/utils/cases/Actions';
+import { previewRows } from '@/utils/cases/Preview';
+import { researchRows } from '@/utils/cases/ResearchRows';
 
 type CasePageProps = {
   params: Promise<{ locale: string; id: string }>;
@@ -36,30 +48,6 @@ export async function generateMetadata(props: CasePageProps): Promise<Metadata> 
     title: t('meta_title'),
     description: t('meta_description'),
   };
-}
-
-/**
- * The claims in a case as table rows, with each person's name from Clerk or a numbered label when there is none.
- * @param caseId - The case id.
- * @param label - Makes the label for a person with no name, from their number.
- * @returns The rows.
- */
-async function loadClaimants(caseId: string, label: (number: number) => string) {
-  const claims = await listCaseClaims(caseId);
-  const names = await claimantNames(claims.map((claim) => claim.userId));
-
-  return claims.map((claim, index): ClaimantRow => ({
-    id: claim.id,
-    caseId,
-    name: names.get(claim.userId) ?? label(index + 1),
-    fraudType: claim.fraudType,
-    chain: claim.chain,
-    reference: claim.walletAddress ?? claim.txHash ?? '',
-    amountLost: claim.amountLost,
-    country: claim.country,
-    ownership: claim.ownership,
-    submittedAt: claim.submittedAt?.toISOString() ?? null,
-  }));
 }
 
 /**
@@ -105,12 +93,24 @@ export default async function CasePage(props: CasePageProps) {
   }
 
   const user = await currentUser();
+  const access = await readCaseAccess();
   const { decision, canSeeClaims } = await loadViewer(found, user);
-  const report = found.hasReport ? await getReport(found.id) : null;
-  const reported = await reportedPattern(found.id);
+  const [report, research, story, alleged, evidence] = await Promise.all([
+    found.hasReport ? getReport(found.id) : null,
+    listResearch(found.id),
+    readCaseStory(found.id, access),
+    listActions(found.id),
+    listEvidence(found.id),
+  ]);
+  const actions = actionRows(alleged, evidence);
+  const rows = researchRows(research, (item) =>
+    item.state === 'reported' && item.run !== null
+      ? `/dashboard/cases/${found.id}/analysis/${item.run}`
+      : null,
+  );
 
   const claimants = canSeeClaims
-    ? await loadClaimants(found.id, (number) => t('claimant_number', { number }))
+    ? await loadClaimantRows(found.id, (number) => t('claimant_number', { number }))
     : [];
 
   return (
@@ -168,21 +168,52 @@ export default async function CasePage(props: CasePageProps) {
           {report && <ReportFigures figures={report.snapshot.figures} />}
         </div>
         <AffectedJurisdictions caseId={found.id} />
-        <CaseStory pattern={reported} report={report?.snapshot ?? null} />
-        <CaseOperators operators={found.operators} jurisdictions={found.operatorJurisdictions} />
-        <PageSection title={t('report_title')}>
-          {report ? (
-            <ReportSummary report={report} caseId={found.id} hideFigures />
+        <CaseStory story={story} />
+        <CaseActions access={access} caseId={found.id} actions={actions} />
+        <CaseEvidence access={access} caseId={found.id} items={evidence} />
+        <CaseOperators access={access} caseId={found.id} operators={found.operators} />
+        <PageSection
+          title={t('report_title')}
+          action={
+            rows.length > previewRows && (
+              <ViewAllLink
+                href={`/dashboard/cases/${found.id}/analysis`}
+                count={rows.length}
+                access={access}
+              />
+            )
+          }
+        >
+          {rows.length > 0 ? (
+            <div className="grid gap-4">
+              <p className="max-w-prose text-sm text-ink-muted">{t('reports_intro')}</p>
+              <ResearchTable rows={rows.slice(0, previewRows)} preview />
+            </div>
           ) : (
             <p className="text-ink-muted">{t('report_none')}</p>
           )}
         </PageSection>
         {canSeeClaims && (
           <div id="claimants" className="scroll-mt-24">
-            <PageSection title={t('claimants_title')} description={t('claimants_description')}>
-              <CaseClaimantsTable claims={claimants} />
+            <PageSection
+              title={t('claimants_title')}
+              description={t('claimants_description')}
+              action={
+                claimants.length > previewRows && (
+                  <ViewAllLink
+                    href={`/dashboard/cases/${found.id}/claimants`}
+                    count={claimants.length}
+                    access="full"
+                  />
+                )
+              }
+            >
+              <CaseClaimantsTable claims={claimants.slice(0, previewRows)} preview />
             </PageSection>
           </div>
+        )}
+        {(access !== 'full' || decision) && (
+          <ContactClaimantsBox access={access} caseId={found.id} />
         )}
       </div>
     </>

@@ -2,12 +2,12 @@
 
 import type { Column } from '@tanstack/react-table';
 import { useFormatter, useTranslations } from 'next-intl';
-import { CasePreviewDialog } from '@/components/cases/CasePreviewDialog';
 import { DataTableColumnHeader } from '@/components/data-table/DataTableColumnHeader';
 import { createSelectColumn } from '@/components/data-table/select-column';
 import { createAppColumnHelper } from '@/components/data-table/table';
 import type { TableFeatures } from '@/components/data-table/table';
 import { StatusBadge } from '@/components/overview/StatusBadge';
+import { Button } from '@/components/ui/button';
 import { Link } from '@/libs/I18nNavigation';
 import { caseStatusOrder } from '@/utils/cases/Case';
 import type { CaseRow, CaseStatus } from '@/utils/cases/Case';
@@ -41,6 +41,22 @@ function CaseHeader<TValue>(props: {
 
   return (
     <DataTableColumnHeader column={props.column} title={labels[props.id]} align={props.align} />
+  );
+}
+
+/**
+ * The way into a case: its page is the overview, so there is no preview panel.
+ * @param props - The cell props.
+ * @param props.caseRow - The case.
+ * @returns The link.
+ */
+function OpenCell(props: { caseRow: CaseRow }) {
+  const t = useTranslations('CaseBank');
+
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={`/dashboard/cases/${props.caseRow.id}`}>{t('open_case')}</Link>
+    </Button>
   );
 }
 
@@ -83,7 +99,7 @@ function UpdatedCell(props: { value: string }) {
 const helper = createAppColumnHelper<CaseRow>();
 
 /**
- * Builds the columns of a case table. A linked table opens the case page from the case name and offers the preview. Call it at
+ * Builds the columns of a case table. A linked table opens the case page from the case name and has a link to it. Call it at
  * module scope so the table never rebuilds the columns.
  * @param linked - Whether the case name links to its page.
  * @returns The columns.
@@ -126,14 +142,14 @@ function createCaseColumns(linked: boolean) {
     }),
   ]);
 
-  // A linked table offers the preview, since each case has a page.
+  // A linked table offers a link to the case page, which is the overview.
   return linked
     ? [
         ...columns,
         helper.display({
-          id: 'preview',
+          id: 'open',
           header: () => null,
-          cell: ({ row }) => <CasePreviewDialog row={row.original} />,
+          cell: ({ row }) => <OpenCell caseRow={row.original} />,
           enableSorting: false,
           enableHiding: false,
         }),

@@ -4,43 +4,13 @@ import { useTranslations } from 'next-intl';
 import { ResultBadge } from '@/components/cases/ResultBadge';
 import { DataTable } from '@/components/data-table/DataTable';
 import { createAppColumnHelper } from '@/components/data-table/table';
-import { Link } from '@/libs/I18nNavigation';
 import type { CheckRow } from '@/utils/cases/ReportChecks';
 import { checkResults } from '@/validations/ReportValidation';
 
-const linkClass =
-  'text-sm font-medium underline underline-offset-4 focus-ring hover:text-ink-muted';
-
-function Heading(props: { id: 'claim' | 'result' | 'evidence' | 'tests' }) {
+function Heading(props: { id: 'claim' | 'result' | 'evidence' }) {
   const t = useTranslations('Report');
 
   return t(`${props.id}_label`);
-}
-
-function TestLinks(props: { tests: CheckRow['tests'] }) {
-  const t = useTranslations('Report');
-
-  if (props.tests.length === 0) {
-    return <span className="text-ink-muted">{t('tests_none')}</span>;
-  }
-
-  return (
-    <ul className="grid gap-1">
-      {props.tests.map((test) => (
-        <li key={test.id}>
-          {test.href.startsWith('#') ? (
-            <a href={test.href} className={linkClass}>
-              {test.title}
-            </a>
-          ) : (
-            <Link href={test.href} className={linkClass}>
-              {test.title}
-            </Link>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 const helper = createAppColumnHelper<CheckRow>();
@@ -62,17 +32,11 @@ const columns = helper.columns([
     header: () => <Heading id="evidence" />,
     cell: ({ getValue }) => <p className="min-w-64 whitespace-normal">{getValue()}</p>,
   }),
-  helper.display({
-    id: 'tests',
-    header: () => <Heading id="tests" />,
-    cell: ({ row }) => <TestLinks tests={row.original.tests} />,
-    enableSorting: false,
-  }),
 ]);
 
 /**
- * What a report checked, as one table: a row for each thing the platform said, with the result, what the chain shows, the tests in
- * Celia that back it and any proof outside Celia. The case page and the staff view both use it. The columns are fixed, so it is the
+ * What a report checked, as one table: a row for each thing the platform said, with the result and what the chain shows. The case
+ * page and the staff view both use it. The columns are fixed, so it is the
  * app's own table, sortable by result. With a search placeholder it also gets search and a filter on the result.
  * @param props - The table props.
  * @param props.rows - The checks.
@@ -96,8 +60,6 @@ export function CheckTable(props: { rows: CheckRow[]; searchPlaceholder?: string
         claim: t('claim_label'),
         result: t('result_label'),
         evidence: t('evidence_label'),
-        tests: t('tests_label'),
-        proof: t('proof_label'),
       }}
       filters={[
         {

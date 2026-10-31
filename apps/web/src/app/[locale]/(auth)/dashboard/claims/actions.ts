@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type * as z from 'zod';
 import { mustVerify } from '@/libs/accounts/Identity';
+import { refreshStoriesForClaims } from '@/libs/cases/CaseStory';
 import { detectAccountKind } from '@/libs/claims/AccountKind';
 import {
   checkExtraTransactions,
@@ -25,6 +26,7 @@ import {
 } from '@/libs/claims/ClaimExtras';
 import { listProofFiles } from '@/libs/claims/ClaimProofs';
 import { getClaim } from '@/libs/claims/Claims';
+import { removeFollowUp, saveFollowUp } from '@/libs/claims/FollowUp';
 import { countSentToday } from '@/libs/claims/Signals';
 import { checkClaimTransactions } from '@/libs/claims/TxChecks';
 import { db } from '@/libs/DB';
@@ -43,6 +45,7 @@ import {
   SignatureValidation,
   StatementValidation,
 } from '@/validations/ClaimValidation';
+import { FollowUpValidation } from '@/validations/FollowUpValidation';
 
 export type ClaimState = {
   /** The names of the fields that failed, or a reason such as `duplicate` or `signature`. */
@@ -549,6 +552,7 @@ export async function verifyClaimOwnership(
       },
     ]);
   });
+  await refreshStoriesForClaims([claim.id]);
   revalidatePath(getI18nPath(`/dashboard/claims/${claim.id}`, locale));
 
   return { errors: [], done: true };
@@ -847,7 +851,7 @@ export async function saveStatement(
  * cannot sign, and some chains cannot be checked yet); the file then shows it as not confirmed.
  * @param claimId - The claim.
  * @param _state - The previous state (unused).
- * @param formData - The submitted form: `consent`, `connect` and `truthful` must be on.
+ * @param formData - The submitted form: `consent`, `connect` and `truthful` must be on; `contact` is optional.
  * @returns `done` when sent; otherwise `statement` if the account is missing, `consent`, `connect` or `truthful` if the person has
  * not agreed, or `limit` if they have sent the most claims allowed in a day.
  */
@@ -889,7 +893,13 @@ export async function submitClaim(
   await db.transaction(async (tx) => {
     await tx
       .update(claimSchema)
-      .set({ status: 'submitted', submittedAt: new Date(), consentedAt: new Date() })
+      .set({
+        status: 'submitted',
+        submittedAt: new Date(),
+        consentedAt: new Date(),
+        // Optional and separate from the consent above: the person may say no and still send the claim.
+        contactAgreedAt: formData.get('contact') === 'on' ? new Date() : null,
+      })
       .where(eq(claimSchema.id, claim.id));
 
     await notify(tx, [
@@ -904,6 +914,56 @@ export async function submitClaim(
   revalidatePath(getI18nPath(`/dashboard/claims/${claim.id}`, locale));
 
   return { errors: [], done: true };
+}
+
+/**
+ * Saves how the person wants Celia to follow up on a claim they have sent. It is private to them and to staff, and is shared with
+ * no one unless they explicitly agree. A claim that is still a draft has no follow-up.
+ * @param claimId - The claim.
+ * @param _state - The previous state (unused).
+ * @param formData - The submitted form: `channel`, `value` for a phone or messaging app, and an optional `bestTime`.
+ * @returns `done` when saved; otherwise `claim`, or the names of the fields that failed.
+ */
+export async function saveFollowUpDetails(
+  claimId: string,
+  _state: ClaimState,
+  formData: FormData,
+): Promise<ClaimState> {
+  const { userId } = await requirePerson();
+  const claim = await getClaim(userId, claimId);
+
+  if (claim?.status !== 'submitted') {
+    return failed(['claim']);
+  }
+
+  const parsed = FollowUpValidation.safeParse({
+    channel: text(formData, 'channel'),
+    value: text(formData, 'value'),
+    bestTime: text(formData, 'bestTime'),
+  });
+
+  if (!parsed.success) {
+    return failed([...new Set(parsed.error.issues.map((issue) => String(issue.path[0])))]);
+  }
+
+  await saveFollowUp(claim.id, parsed.data);
+  revalidatePath(getI18nPath(`/dashboard/claims/${claim.id}`, await getLocale()));
+
+  return { errors: [], done: true };
+}
+
+/**
+ * Deletes what the person gave for follow-up on one of their claims.
+ * @param claimId - The claim.
+ */
+export async function removeFollowUpDetails(claimId: string) {
+  const { userId } = await requirePerson();
+  const claim = await getClaim(userId, claimId);
+
+  if (claim) {
+    await removeFollowUp(claim.id);
+    revalidatePath(getI18nPath(`/dashboard/claims/${claim.id}`, await getLocale()));
+  }
 }
 
 /**

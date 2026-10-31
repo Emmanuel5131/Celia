@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { saveCaseReport } from '@/app/[locale]/(auth)/dashboard/staff/actions';
+import { useConfirmedTransition } from '@/components/staff/ConfirmAction';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,10 +29,16 @@ export function ReportDialog(props: { row: CaseRow }) {
   const t = useTranslations('Staff');
   const [open, setOpen] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
-  const [pending, startTransition] = React.useTransition();
+  const { pending, startTransition, dialog } = useConfirmedTransition();
   const [first] = errors;
   const problem =
-    first === 'words' || first === 'json' || first === 'table' || first === 'loss'
+    first === 'words' ||
+    first === 'json' ||
+    first === 'table' ||
+    first === 'notebook' ||
+    first === 'one_check' ||
+    first === 'analysis' ||
+    first === 'loss'
       ? first
       : 'schema';
 
@@ -91,6 +98,7 @@ export function ReportDialog(props: { row: CaseRow }) {
               {t('report_save')}
             </Button>
           </DialogFooter>
+          {dialog}
         </form>
       </DialogContent>
     </Dialog>

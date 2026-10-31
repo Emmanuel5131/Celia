@@ -20,15 +20,15 @@ describe(pdfSafe, () => {
 });
 
 describe(reportPdfName, () => {
-  it('names the file after the case and the version', () => {
-    expect(reportPdfName('CB-1001', 2)).toBe('celia-cb-1001-report-v2.pdf');
+  it('names the file after the case, the analysis and the version', () => {
+    expect(reportPdfName('CB-1001', 3, 2)).toBe('celia-cb-1001-analysis-3-v2.pdf');
   });
 
   it('never leaves a character a file name cannot hold', () => {
-    expect(reportPdfName('CB 10/01', 1)).toBe('celia-cb-10-01-report-v1.pdf');
+    expect(reportPdfName('CB 10/01', 1, 1)).toBe('celia-cb-10-01-analysis-1-v1.pdf');
   });
 
   it('falls back when the number has no letters or digits', () => {
-    expect(reportPdfName('///', 1)).toBe('celia-case-report-v1.pdf');
+    expect(reportPdfName('///', 1, 1)).toBe('celia-case-analysis-1-v1.pdf');
   });
 });

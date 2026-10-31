@@ -9,6 +9,7 @@ export type NavId =
   | 'staffOverview'
   | 'staffApplications'
   | 'staffClaims'
+  | 'staffContact'
   | 'staffCases'
   | 'staffMail'
   | 'staffSandworm'
@@ -23,6 +24,7 @@ export const navHref: Record<NavId, string> = {
   staffOverview: '/dashboard/staff',
   staffApplications: '/dashboard/staff/applications',
   staffClaims: '/dashboard/staff/claims',
+  staffContact: '/dashboard/staff/contact-requests',
   staffCases: '/dashboard/staff/cases',
   staffMail: '/dashboard/staff/mail',
   staffSandworm: '/dashboard/staff/sandworm',
@@ -46,6 +48,7 @@ export const staffNav: NavId[] = [
   'staffOverview',
   'staffApplications',
   'staffClaims',
+  'staffContact',
   'staffCases',
   'staffMail',
   'staffSandworm',

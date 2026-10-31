@@ -19,7 +19,12 @@ import {
  */
 export function ReportTable(props: { columns: string[]; rows: string[][]; label: string }) {
   return (
-    <div className="border border-border">
+    // A table of two or three columns stays narrow, so a value sits near its label instead of at the far edge of the page.
+    <div
+      className={
+        props.columns.length <= 3 ? 'max-w-3xl border border-border' : 'border border-border'
+      }
+    >
       <Table aria-label={props.label}>
         <TableHeader>
           <TableRow>

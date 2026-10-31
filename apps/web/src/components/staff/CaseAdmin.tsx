@@ -1,19 +1,11 @@
 'use client';
 
 import { useFormatter, useTranslations } from 'next-intl';
-import * as React from 'react';
-import { setCaseStatus } from '@/app/[locale]/(auth)/dashboard/staff/actions';
 import { DataTable } from '@/components/data-table/DataTable';
 import { createAppColumnHelper } from '@/components/data-table/table';
+import { CaseStage } from '@/components/staff/CaseStage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Link } from '@/libs/I18nNavigation';
 import type { AnalysisStatus } from '@/utils/analysis/Status';
 import { caseStatuses } from '@/utils/cases/Case';
@@ -28,41 +20,6 @@ function Heading(props: {
   const t = useTranslations('Staff');
 
   return t(`col_${props.id}`);
-}
-
-function StageSelect(props: { row: StaffCaseRow }) {
-  const t = useTranslations('CaseBank');
-  const staff = useTranslations('Staff');
-  const [pending, startTransition] = React.useTransition();
-
-  return (
-    <Select
-      value={props.row.status}
-      disabled={pending}
-      onValueChange={(value) => {
-        startTransition(async () => {
-          await setCaseStatus(props.row.id, value);
-        });
-      }}
-    >
-      <SelectTrigger size="sm" className="w-48" aria-label={t('col_status')}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {caseStatuses.map((status) => (
-          // Sealing says the evidence file is finished, so it needs a report.
-          <SelectItem
-            key={status}
-            value={status}
-            disabled={status === 'sealed' && !props.row.hasReport}
-          >
-            {t(`status_${status}`)}
-            {status === 'sealed' && !props.row.hasReport ? ` · ${staff('needs_report')}` : ''}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 const nextStepBadge = {
@@ -116,7 +73,13 @@ const columns = helper.columns([
   helper.accessor('status', {
     id: 'status',
     header: () => <Heading id="status" />,
-    cell: ({ row }) => <StageSelect row={row.original} />,
+    cell: ({ row }) => (
+      <CaseStage
+        id={row.original.id}
+        status={row.original.status}
+        hasReport={row.original.hasReport}
+      />
+    ),
     // The filter picks one or more stages; sorting follows the order a case moves through them.
     filterFn: 'inSet',
     sortFn: (a, b, columnId) =>

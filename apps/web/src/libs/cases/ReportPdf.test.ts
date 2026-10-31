@@ -10,7 +10,8 @@ const labels: ReportPdfLabels = {
   evidence: 'The chain shows',
   result: 'Result',
   results: {
-    proven: 'Proven',
+    proven: 'Proven true',
+    proven_false: 'Proven false',
     partly_proven: 'Partly proven',
     not_proven: 'Not proven',
     not_checkable: 'Not on chain',
@@ -28,9 +29,13 @@ const labels: ReportPdfLabels = {
 };
 
 const report = (rows: string[][], headline = 'The chain shows money in and out.'): ReportView => ({
+  analysisId: 'a1',
+  run: 1,
   version: 1,
   hash: `0x${'ab'.repeat(32)}`,
   savedAt: '2026-10-31T10:00:00Z',
+  review: 'approved',
+  agentReview: null,
   snapshot: {
     version: 1,
     headline,

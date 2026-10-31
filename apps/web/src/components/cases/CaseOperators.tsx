@@ -1,39 +1,46 @@
-import { getJurisdiction } from '@celia/jurisdictions';
 import { getTranslations } from 'next-intl/server';
+import { OperatorsTable } from '@/components/cases/OperatorsTable';
+import { ViewAllLink } from '@/components/cases/ViewAllLink';
 import { PageSection } from '@/components/layout/PageSection';
-import { jurisdictionName } from '@/utils/cases/JurisdictionName';
+import type { CaseAccess } from '@/utils/accounts/CaseAccess';
+import type { CaseOperator } from '@/utils/cases/Operators';
+import { previewRows } from '@/utils/cases/Preview';
 
 /**
- * Who the claimants allege ran the platform, as staff recorded it: notes with names and links, and the jurisdictions the
- * operators are linked to. They are allegations and findings of nothing, and the section says so.
+ * Who the claimants allege is behind the platform, as staff recorded it, for the lawyers and investigators reading the case: the
+ * first rows, and a way to open the page that lists them all. They are allegations and findings of nothing, and the section says so.
  * @param props - The section props.
- * @param props.operators - The notes, or null when staff have not added any.
- * @param props.jurisdictions - The jurisdiction ids the operators are linked to.
- * @returns The section, or nothing when there is neither.
+ * @param props.access - How much of the case the reader may see.
+ * @param props.caseId - The case id, for the page with every person and group.
+ * @param props.operators - The people and groups.
+ * @returns The section, or nothing when staff have not added any.
  */
-export async function CaseOperators(props: { operators: string | null; jurisdictions: string[] }) {
+export async function CaseOperators(props: {
+  access: CaseAccess;
+  caseId: string;
+  operators: CaseOperator[];
+}) {
   const t = await getTranslations('CaseDetail');
 
-  if (!props.operators && props.jurisdictions.length === 0) {
+  if (props.operators.length === 0) {
     return null;
   }
 
   return (
-    <PageSection title={t('operators_title')} description={t('operators_description')}>
-      {props.jurisdictions.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label={t('operators_places')}>
-          {props.jurisdictions.map((id) => {
-            const jurisdiction = getJurisdiction(id);
-
-            return (
-              <li key={id} className="border border-border bg-surface px-3 py-1 text-sm">
-                {jurisdiction ? jurisdictionName(jurisdiction) : id.toUpperCase()}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {props.operators && <p className="max-w-3xl whitespace-pre-wrap">{props.operators}</p>}
+    <PageSection
+      title={t('operators_title')}
+      description={t('operators_description')}
+      action={
+        props.operators.length > previewRows && (
+          <ViewAllLink
+            href={`/dashboard/cases/${props.caseId}/operators`}
+            count={props.operators.length}
+            access={props.access}
+          />
+        )
+      }
+    >
+      <OperatorsTable operators={props.operators.slice(0, previewRows)} preview />
     </PageSection>
   );
 }

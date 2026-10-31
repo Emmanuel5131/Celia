@@ -2,9 +2,8 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ApplicationsTable } from '@/components/staff/ApplicationsTable';
-import { listApplicationsInReview } from '@/libs/accounts/Applications';
+import { listApplications } from '@/libs/accounts/Applications';
 import { requireStaff } from '@/libs/accounts/Staff';
-import { Env } from '@/libs/Env';
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -23,16 +22,12 @@ export default async function StaffApplicationsPage(props: PageProps) {
   const { locale } = await props.params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'Staff' });
-  const staff = await requireStaff();
+  await requireStaff();
 
   return (
     <>
       <PageHeader title={t('queue_title')} description={t('queue_description')} />
-      <ApplicationsTable
-        items={await listApplicationsInReview()}
-        actorId={staff.id}
-        production={Env.NODE_ENV === 'production'}
-      />
+      <ApplicationsTable items={await listApplications()} />
     </>
   );
 }

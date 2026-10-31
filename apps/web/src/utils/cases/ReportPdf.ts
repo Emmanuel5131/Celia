@@ -13,16 +13,17 @@ export function pdfSafe(text: string) {
 }
 
 /**
- * The name a downloaded report is saved under, such as `celia-cb-1001-report-v2.pdf`.
+ * The name a downloaded report is saved under, such as `celia-cb-1001-analysis-1-v2.pdf`.
  * @param caseNumber - The case number, such as `CB-1001`.
+ * @param run - The analysis the report answers.
  * @param version - The report version.
  * @returns The file name.
  */
-export function reportPdfName(caseNumber: string, version: number) {
+export function reportPdfName(caseNumber: string, run: number, version: number) {
   const slug = caseNumber
     .toLowerCase()
     .replaceAll(/[^a-z\d]+/gu, '-')
     .replaceAll(/^-|-$/gu, '');
 
-  return `celia-${slug || 'case'}-report-v${version}.pdf`;
+  return `celia-${slug || 'case'}-analysis-${run}-v${version}.pdf`;
 }

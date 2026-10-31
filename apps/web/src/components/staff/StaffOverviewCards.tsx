@@ -3,6 +3,7 @@ import {
   EnvelopeSimpleIcon,
   FilesIcon,
   IdentificationBadgeIcon,
+  PaperPlaneTiltIcon,
 } from '@phosphor-icons/react/ssr';
 import { getFormatter, getTranslations } from 'next-intl/server';
 import {
@@ -20,6 +21,7 @@ import { cn } from '@/utils/Cn';
 const icons = {
   applications: IdentificationBadgeIcon,
   claims: FilesIcon,
+  contact: PaperPlaneTiltIcon,
   mail: EnvelopeSimpleIcon,
 } as const;
 
@@ -42,11 +44,12 @@ export async function StaffOverviewCards(props: {
   const cards = [
     { id: 'applications', href: '/dashboard/staff/applications' },
     { id: 'claims', href: '/dashboard/staff/claims' },
+    { id: 'contact', href: '/dashboard/staff/contact-requests' },
     { id: 'mail', href: '/dashboard/staff/mail' },
   ] as const;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
         const Icon = icons[card.id];
         const value = props.counts[card.id];

@@ -61,6 +61,7 @@ export default async function DashboardLayout(props: DashboardLayoutProps) {
         counts && {
           staffApplications: counts.applications,
           staffClaims: counts.claims,
+          staffContact: counts.contact,
           staffMail: counts.mail,
         }
       }

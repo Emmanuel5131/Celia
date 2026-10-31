@@ -235,7 +235,21 @@ export function VideoWay(props: { action: OwnershipAction; link: string | null }
         </ol>
       </div>
       <p className="border border-border bg-paper p-3 text-sm font-medium">{t('own_video_safe')}</p>
-      <p className="text-sm text-ink-muted">{t('own_video_where')}</p>
+      <p className="text-sm text-ink-muted">
+        {t('own_video_where')}{' '}
+        {t.rich('own_video_loom_help', {
+          link: (chunks) => (
+            <a
+              href="https://www.loom.com/screen-recorder"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4 focus-ring"
+            >
+              {chunks}
+            </a>
+          ),
+        })}
+      </p>
       <div className="grid gap-2">
         <Label htmlFor="video-link">{t('own_video_link_label')}</Label>
         <Input

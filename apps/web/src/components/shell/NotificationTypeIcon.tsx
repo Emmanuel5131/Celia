@@ -27,6 +27,8 @@ const icons: Record<NotificationType, React.ComponentType> = {
   counsel_review_reset: HourglassIcon,
   case_ready_for_counsel: CheckCircleIcon,
   case_taken_by_you: GavelIcon,
+  contact_request: PaperPlaneTiltIcon,
+  contact_request_decided: CheckCircleIcon,
 };
 
 /**

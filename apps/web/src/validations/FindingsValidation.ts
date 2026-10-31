@@ -1,29 +1,13 @@
 import * as z from 'zod';
-import { checkResults, idPattern, limitedText } from '@/validations/ReportValidation';
+import {
+  ChartValidation,
+  checkResults,
+  idPattern,
+  limitedText,
+} from '@/validations/ReportValidation';
 
 // The limits are the report's own (see `ReportValidation`), so findings that pass here are accepted when the report is saved.
 const hash = z.string().trim().min(1).max(100);
-
-/** A small chart of one test, as data: Celia draws it with its own colours. At most 30 points and 4 series, so it stays small. */
-const ChartValidation = z
-  .object({
-    type: z.enum(['bar', 'line']),
-    x: z.array(limitedText(40)).min(1).max(30),
-    series: z
-      .array(
-        z.object({
-          name: limitedText(40),
-          values: z.array(z.number()).min(1).max(30),
-        }),
-      )
-      .min(1)
-      .max(4),
-    /** A fixed threshold the finding is measured against, drawn as the seal-red dashed line. */
-    threshold: z.object({ value: z.number(), label: limitedText(40) }).optional(),
-  })
-  .refine((chart) => chart.series.every((series) => series.values.length === chart.x.length), {
-    message: 'chart_shape',
-  });
 
 /** One test as the notebook wrote it. The verdict comes from a rule fixed before the run, not from anyone's judgement after it. */
 const TestFindingValidation = z
@@ -38,7 +22,8 @@ const TestFindingValidation = z
       .array(z.array(limitedText(120)).max(8))
       .min(1)
       .max(50),
-    chart: ChartValidation.optional(),
+    charts: z.array(ChartValidation).max(3).optional(),
+    notes: z.array(limitedText(300)).max(5).optional(),
   })
   .refine((test) => test.rows.every((row) => row.length === test.columns.length), {
     message: 'table_shape',

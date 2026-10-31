@@ -1,4 +1,5 @@
 import { confirmedClaimsToBuild } from '@celia/core';
+import type { CaseOperator } from '@/utils/cases/Operators';
 
 export const caseStatuses = ['collecting', 'building', 'sealed'] as const;
 
@@ -33,10 +34,8 @@ export type CaseRow = {
   confirmed: number;
   /** In how many jurisdictions the claimants are. Counted from their claims, so a case is never in just one place. */
   jurisdictions: number;
-  /** Notes on who the claimants allege ran the platform, or null before staff add any. */
-  operators: string | null;
-  /** The jurisdiction ids the alleged operators are linked to. */
-  operatorJurisdictions: string[];
+  /** The people and groups the claimants allege are behind the platform; empty before staff add any. */
+  operators: CaseOperator[];
   /** One line on the case, or null before it has a report. */
   description: string | null;
   status: CaseStatus;

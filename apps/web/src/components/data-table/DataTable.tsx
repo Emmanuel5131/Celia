@@ -41,10 +41,44 @@ type DataTableProps<TData extends RowData> = {
   selectionActions?: (rows: TData[]) => React.ReactNode;
 };
 
+const isBlank = (value: unknown) =>
+  value === null || value === undefined || value === '' || value === '—';
+
+/**
+ * Finds the columns that would show nothing: every row's value is empty. They start hidden, so a table never carries a column of
+ * dashes; the columns menu can still show them.
+ * @param columns - The columns.
+ * @param data - The rows.
+ * @returns The visibility to start with, `false` for each empty column.
+ */
+function emptyColumns<TData extends RowData>(
+  // oxlint-disable-next-line typescript/no-explicit-any
+  columns: ColumnDef<TableFeatures, TData, any>[],
+  data: TData[],
+) {
+  const hidden: Record<string, false> = {};
+
+  if (data.length === 0) {
+    return hidden;
+  }
+
+  for (const column of columns) {
+    if (
+      'accessorFn' in column &&
+      column.id &&
+      data.every((row, index) => isBlank(column.accessorFn(row, index)))
+    ) {
+      hidden[column.id] = false;
+    }
+  }
+
+  return hidden;
+}
+
 /**
  * The one table for the whole app: TanStack Table for the behaviour (sorting, search, faceted filters, column visibility, row
  * selection, pagination) and our shadcn `Table` for the look. A screen only supplies columns and data. Turn the toolbar and
- * pagination off for a short read-only list.
+ * pagination off for a short read-only list. A column with no value in any row starts hidden.
  * @param props - The table props.
  * @returns The table with its toolbar and pagination.
  */
@@ -58,7 +92,10 @@ export function DataTable<TData extends RowData>(props: DataTableProps<TData>) {
     data: props.data,
     columns: props.columns,
     getRowId: props.getRowId,
-    initialState: { pagination: { pageIndex: 0, pageSize: props.pageSize ?? 10 } },
+    initialState: {
+      pagination: { pageIndex: 0, pageSize: props.pageSize ?? 10 },
+      columnVisibility: emptyColumns(props.columns, props.data),
+    },
   });
 
   const { rows } = table.getRowModel();

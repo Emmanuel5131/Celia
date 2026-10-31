@@ -5,7 +5,7 @@ export type OverviewCase = CaseRow & { createdAt: string };
 
 export type OverviewEvent = { caseId: string; type: CaseEventType; count: number; at: string };
 
-export type ActivityKind =
+type ActivityKind =
   | 'case_opened'
   | 'claims_added'
   | 'report_saved'

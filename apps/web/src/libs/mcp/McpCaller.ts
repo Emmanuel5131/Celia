@@ -2,6 +2,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { staffDecision } from '@/libs/accounts/Staff';
 import { parseAccount } from '@/utils/accounts/Account';
+import { caseAccess } from '@/utils/accounts/CaseAccess';
 
 /** What a caller of the MCP server is on Celia. */
 export type McpRole = 'staff' | 'counsel' | 'person';
@@ -25,12 +26,14 @@ export async function identifyMcpCaller() {
   const email = user.primaryEmailAddress?.emailAddress ?? null;
 
   if (staffDecision(user) === 'allowed') {
-    return { userId: user.id, email, role: 'staff' as const };
+    return { userId: user.id, email, role: 'staff' as const, review: null };
   }
 
   const account = parseAccount(user.publicMetadata);
 
-  return account ? { userId: user.id, email, role: account.accountType } : null;
+  return account
+    ? { userId: user.id, email, role: account.accountType, review: account.review ?? null }
+    : null;
 }
 
 /**
@@ -43,6 +46,22 @@ export async function identifyMcpCallerWithRole(...roles: McpRole[]) {
   const caller = await identifyMcpCaller();
 
   return caller && roles.includes(caller.role) ? caller : null;
+}
+
+/**
+ * How much of a case this caller may read. Staff and verified organisations read every list; everyone else gets the first rows of
+ * each, as in the web app, so the MCP server is never a way round the limit.
+ * @param caller - Who is calling, from `identifyMcpCaller`.
+ * @returns The access.
+ */
+export function mcpCaseAccess(caller: NonNullable<Awaited<ReturnType<typeof identifyMcpCaller>>>) {
+  return caseAccess({
+    account:
+      caller.role === 'staff'
+        ? null
+        : { accountType: caller.role, review: caller.review ?? undefined },
+    staff: caller.role === 'staff',
+  });
 }
 
 /**

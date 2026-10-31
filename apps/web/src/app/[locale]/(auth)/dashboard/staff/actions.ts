@@ -1,8 +1,8 @@
 'use server';
 
-import { getJurisdiction } from '@celia/jurisdictions';
 import { clerkClient } from '@clerk/nextjs/server';
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { getTranslations } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 import * as z from 'zod';
 import { setCounselReview } from '@/libs/accounts/CounselProfile';
@@ -10,38 +10,43 @@ import { lookupRegistry, lookupSanctions } from '@/libs/accounts/Lookups';
 import { requireStaff } from '@/libs/accounts/Staff';
 import { recordStaffAction, staffActor } from '@/libs/accounts/StaffAudit';
 import { approveBrief } from '@/libs/analysis/Analysis';
-import { addStatement, removeStatement } from '@/libs/analysis/Statements';
+import {
+  addEvidence,
+  removeEvidence,
+  reviewEvidence,
+  updateEvidence,
+} from '@/libs/analysis/Evidence';
+import { addStatement, removeStatement, updateStatement } from '@/libs/analysis/Statements';
 import { recordCaseEvent } from '@/libs/cases/CaseEvents';
 import { addConfirmedClaim } from '@/libs/cases/Cases';
-import { saveCheckedReport } from '@/libs/cases/Reports';
+import { refreshCaseStory, refreshStoriesForClaims } from '@/libs/cases/CaseStory';
+import { answerReport, saveCheckedReport } from '@/libs/cases/Reports';
 import { signalsFor } from '@/libs/claims/Signals';
+import { decideRequest } from '@/libs/contact/ContactRequests';
 import { db } from '@/libs/DB';
 import { Env } from '@/libs/Env';
 import { notify } from '@/libs/notifications/Notify';
 import { claimantIds, verifiedCounselIds } from '@/libs/notifications/Recipients';
 import { unsuppress } from '@/libs/notifications/Suppression';
+import { signUpload } from '@/libs/Pinata';
 import { deleteConnection } from '@/libs/sandworm/Connection';
 import {
+  caseActionSchema,
   caseReportSchema,
   caseSchema,
   claimProofSchema,
   claimSchema,
   emailMessageSchema,
   institutionApplicationSchema,
+  userSettingSchema,
 } from '@/models/Schema';
 import { parseAccount } from '@/utils/accounts/Account';
-import { approvalRefusal, reviewChecks } from '@/utils/accounts/Institution';
+import { approvalRefusal, rejectReasons, reviewChecks } from '@/utils/accounts/Institution';
+import type { RejectReason } from '@/utils/accounts/Institution';
 import { caseStatuses } from '@/utils/cases/Case';
-import { forbiddenWords } from '@/validations/ReportValidation';
-
-// Notes on who is alleged to have run a platform. The house language applies: they record what is alleged, they do not declare fraud.
-const CaseOperatorsValidation = z.object({
-  operators: z
-    .string()
-    .trim()
-    .max(3000)
-    .refine((value) => !forbiddenWords.test(value), { message: 'forbidden_words' }),
-});
+import { emailLocale } from '@/utils/notifications/NotifyPlan';
+import { ActionValidation } from '@/validations/ActionValidation';
+import { OperatorsValidation } from '@/validations/OperatorsValidation';
 
 const ApplicationCheckValidation = z.object({
   userId: z.string().min(1),
@@ -265,24 +270,45 @@ export async function approveApplication(
 
 const RejectionValidation = z.object({
   userId: z.string().min(1),
-  note: z.string().trim().min(1).max(500),
+  reason: z.enum(rejectReasons).optional(),
+  note: z.string().trim().max(500).optional(),
 });
 
 /**
- * Rejects an application. The reason is kept and shown to the applicant; the account stays without access.
+ * Rejects an application. The reason is kept and shown to the applicant; the account stays without access. The decision note is the
+ * chosen reason in its own words, then any details staff added.
  * @param input - The applicant and the reason.
  * @param input.userId - The applicant's Clerk user id.
- * @param input.note - Why, in a sentence or two.
- * @returns `note` when the reason is missing; otherwise nothing.
+ * @param input.reason - One of the reasons staff pick from.
+ * @param input.note - Details to add, or the whole reason when none is chosen.
+ * @returns `note` when there is neither a reason nor details, or they are too long; otherwise `ok`.
  */
 export async function rejectApplication(input: {
   userId: string;
-  note: string;
+  reason?: RejectReason;
+  note?: string;
 }): Promise<'ok' | 'note'> {
   const staff = await requireStaff();
   const parsed = RejectionValidation.safeParse(input);
 
   if (!parsed.success) {
+    return 'note';
+  }
+
+  // The reason is written in the applicant's own language, which they saved; a route with no language in its address has none of its own.
+  const [setting] = await db
+    .select({ locale: userSettingSchema.locale })
+    .from(userSettingSchema)
+    .where(eq(userSettingSchema.userId, parsed.data.userId));
+  const t = await getTranslations({ locale: emailLocale(setting?.locale), namespace: 'Staff' });
+  const decisionNote = [
+    parsed.data.reason && t(`app_reason_${parsed.data.reason}`),
+    parsed.data.note,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  if (decisionNote === '' || decisionNote.length > 500) {
     return 'note';
   }
 
@@ -293,7 +319,7 @@ export async function rejectApplication(input: {
         status: 'rejected',
         decidedBy: staff.id,
         decidedAt: new Date(),
-        decisionNote: parsed.data.note,
+        decisionNote,
       })
       .where(
         and(
@@ -399,6 +425,7 @@ async function confirmWalletProof(
 /**
  * Validates one sent claim inside a transaction: staff have checked it and the evidence the person added, including any proof of
  * the wallet, which is confirmed with it. It only works on a claim that was sent and not validated yet, and it tells the person.
+ * A rejected claim can be validated too, which lifts its rejection.
  * @param tx - The transaction.
  * @param staff - The staff member.
  * @param claimId - The claim.
@@ -411,13 +438,13 @@ async function validateOne(
 ) {
   const [claim] = await tx
     .update(claimSchema)
-    .set({ validatedAt: new Date() })
+    // A rejected claim can be accepted after all, in case it was rejected by mistake; its rejection is lifted.
+    .set({ validatedAt: new Date(), rejectedAt: null, rejectionNote: null })
     .where(
       and(
         eq(claimSchema.id, claimId),
         eq(claimSchema.status, 'submitted'),
         isNull(claimSchema.validatedAt),
-        isNull(claimSchema.rejectedAt),
       ),
     )
     .returning({
@@ -497,6 +524,7 @@ export async function validateClaims(claimIds: string[]): Promise<BulkResult> {
     allowed,
     async (tx, claimId) => await validateOne(tx, staff, claimId),
   );
+  await refreshStoriesForClaims(allowed);
 
   return { done, skipped: parsed.data.length - done };
 }
@@ -626,7 +654,9 @@ const RejectClaimsValidation = z.object({ claimIds: ids, note: z.string().trim()
 
 /**
  * Rejects sent claims: one or a selection of up to 100, all with the same reason, which each person sees on their claim and in an
- * email. A rejected claim leaves the queue and never joins a case. A claim already accepted or rejected is skipped.
+ * email. A rejected claim leaves the queue and never joins a case.
+ * A claim already accepted can be rejected too, in case it was accepted by mistake: it is taken back out of its case. A claim
+ * already rejected is skipped.
  * @param input - The claims and the reason.
  * @param input.claimIds - The claims.
  * @param input.note - Why they were rejected.
@@ -645,14 +675,18 @@ export async function rejectClaims(input: {
 
   const { claimIds, note } = parsed.data;
   const done = await runBatch(claimIds, async (tx, claimId) => {
+    const [before] = await tx
+      .select({ validatedAt: claimSchema.validatedAt })
+      .from(claimSchema)
+      .where(eq(claimSchema.id, claimId));
+    // Clearing `validatedAt` takes an accepted claim back out of the case counts, which read it.
     const [claim] = await tx
       .update(claimSchema)
-      .set({ rejectedAt: new Date(), rejectionNote: note })
+      .set({ rejectedAt: new Date(), rejectionNote: note, validatedAt: null })
       .where(
         and(
           eq(claimSchema.id, claimId),
           eq(claimSchema.status, 'submitted'),
-          isNull(claimSchema.validatedAt),
           isNull(claimSchema.rejectedAt),
         ),
       )
@@ -666,6 +700,7 @@ export async function rejectClaims(input: {
       actor: staffActor(staff),
       action: 'claim_rejected',
       target: { type: 'claim', id: claimId },
+      ...(before?.validatedAt && { details: { was: 'accepted' } }),
     });
     await notify(tx, [
       {
@@ -678,60 +713,85 @@ export async function rejectClaims(input: {
 
     return true;
   });
+  await refreshStoriesForClaims(claimIds);
 
   return { done, skipped: claimIds.length - done };
 }
 
-/**
- * Saves who the claimants allege ran a platform: notes with names and links, and the jurisdictions the operators are linked to.
- * An empty note and no jurisdictions clear them. The text must keep to the house language, because it records an allegation and never declares fraud.
- * @param caseId - The case id.
- * @param formData - The submitted form, with `operators` and any number of `jurisdictions`.
- * @returns The names of the fields that failed: `words` when the text declares fraud, `operators` when it is too long,
- *   `jurisdictions` when one is not a known jurisdiction.
- */
-export async function saveCaseOperators(caseId: string, formData: FormData) {
-  const staff = await requireStaff();
-  const entry = formData.get('operators');
-  const parsed = CaseOperatorsValidation.safeParse({
-    operators: typeof entry === 'string' ? entry : '',
-  });
+const blankToNull = (value: FormDataEntryValue | null) =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 
-  if (!parsed.success) {
-    return parsed.error.issues.some((issue) => issue.message === 'forbidden_words')
-      ? ['words']
-      : ['operators'];
+/**
+ * Reads one alleged actor from a form and checks it.
+ * @param formData - The form with `name`, `role`, `roleNote`, `jurisdiction` and `notes`.
+ * @returns The actor, or the names of what failed: `words`, `role`, `jurisdictions` or `operators`.
+ */
+function parseOperator(formData: FormData) {
+  const parsed = OperatorsValidation.safeParse([
+    {
+      name: blankToNull(formData.get('name')) ?? '',
+      role: blankToNull(formData.get('role')),
+      roleNote:
+        blankToNull(formData.get('role')) === 'other'
+          ? blankToNull(formData.get('roleNote'))
+          : null,
+      jurisdiction: blankToNull(formData.get('jurisdiction')),
+      notes: blankToNull(formData.get('notes')),
+    },
+  ]);
+
+  if (parsed.success && parsed.data[0]) {
+    return { row: parsed.data[0] };
+  }
+
+  const issues = parsed.success ? [] : parsed.error.issues;
+
+  if (issues.some((issue) => issue.message === 'forbidden_words')) {
+    return { problems: ['words'] };
+  }
+
+  if (issues.some((issue) => issue.path.includes('roleNote'))) {
+    return { problems: ['role'] };
+  }
+
+  return {
+    problems: issues.some((issue) => issue.path.includes('jurisdiction'))
+      ? ['jurisdictions']
+      : ['operators'],
+  };
+}
+
+/**
+ * Adds one person or group the claimants allege is behind a platform, to the end of the case's list. The list has no limit. The
+ * text must keep to the house language, because it records an allegation and never declares fraud.
+ * @param caseId - The case id.
+ * @param formData - The submitted form, with `name`, `role`, `jurisdiction` and `notes`.
+ * @returns The names of the fields that failed: `words` when the text declares fraud, `operators` when the name is missing or a
+ *   field is too long, `jurisdictions` when it is not a known jurisdiction, `case` when the case is not found.
+ */
+export async function addCaseOperator(caseId: string, formData: FormData) {
+  const staff = await requireStaff();
+  const parsed = parseOperator(formData);
+
+  if (parsed.problems !== undefined) {
+    return parsed.problems;
   }
 
   if (!z.uuid().safeParse(caseId).success) {
     return ['case'];
   }
 
-  const jurisdictions = [
-    ...new Set(
-      formData.getAll('jurisdictions').filter((id) => typeof id === 'string' && id !== ''),
-    ),
-  ];
-
-  if (
-    jurisdictions.length > 20 ||
-    !jurisdictions.every((id) => typeof id === 'string' && getJurisdiction(id))
-  ) {
-    return ['jurisdictions'];
-  }
-
-  await db.transaction(async (tx) => {
+  const found = await db.transaction(async (tx) => {
     const updated = await tx
       .update(caseSchema)
       .set({
-        operators: parsed.data.operators || null,
-        operatorJurisdictions: jurisdictions.filter((id) => typeof id === 'string'),
+        operatorRows: sql`${caseSchema.operatorRows} || ${JSON.stringify([parsed.row])}::jsonb`,
       })
       .where(eq(caseSchema.id, caseId))
       .returning({ id: caseSchema.id });
 
     if (updated.length === 0) {
-      return;
+      return false;
     }
 
     await recordStaffAction(tx, {
@@ -739,10 +799,95 @@ export async function saveCaseOperators(caseId: string, formData: FormData) {
       action: 'case_operators_saved',
       target: { type: 'case', id: caseId },
     });
+
+    return true;
   });
   revalidatePath('/', 'layout');
 
-  return [];
+  return found ? [] : ['case'];
+}
+
+/**
+ * Changes one alleged actor of a case, by its place in the list. The text must keep to the house language.
+ * @param caseId - The case id.
+ * @param index - The row's place in the list, from 0.
+ * @param formData - The submitted form, as for `addCaseOperator`.
+ * @returns The names of what failed, as for `addCaseOperator`, or `case` when there is no such row; none when saved.
+ */
+export async function updateCaseOperator(caseId: string, index: number, formData: FormData) {
+  const staff = await requireStaff();
+  const parsed = parseOperator(formData);
+
+  if (parsed.problems !== undefined) {
+    return parsed.problems;
+  }
+
+  if (!z.uuid().safeParse(caseId).success || !Number.isInteger(index) || index < 0) {
+    return ['case'];
+  }
+
+  const found = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ rows: caseSchema.operatorRows })
+      .from(caseSchema)
+      .where(eq(caseSchema.id, caseId))
+      .for('update');
+
+    if (!current || index >= current.rows.length) {
+      return false;
+    }
+
+    await tx
+      .update(caseSchema)
+      .set({ operatorRows: current.rows.map((row, place) => (place === index ? parsed.row : row)) })
+      .where(eq(caseSchema.id, caseId));
+    await recordStaffAction(tx, {
+      actor: staffActor(staff),
+      action: 'case_operators_saved',
+      target: { type: 'case', id: caseId },
+    });
+
+    return true;
+  });
+  revalidatePath('/', 'layout');
+
+  return found ? [] : ['case'];
+}
+
+/**
+ * Removes one person or group from the case's list.
+ * @param caseId - The case id.
+ * @param index - The row's place in the list, from 0.
+ */
+export async function removeCaseOperator(caseId: string, index: number) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !Number.isInteger(index) || index < 0) {
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ rows: caseSchema.operatorRows })
+      .from(caseSchema)
+      .where(eq(caseSchema.id, caseId))
+      .for('update');
+
+    if (!current || index >= current.rows.length) {
+      return;
+    }
+
+    await tx
+      .update(caseSchema)
+      .set({ operatorRows: current.rows.filter((_, place) => place !== index) })
+      .where(eq(caseSchema.id, caseId));
+    await recordStaffAction(tx, {
+      actor: staffActor(staff),
+      action: 'case_operators_saved',
+      target: { type: 'case', id: caseId },
+    });
+  });
+  revalidatePath('/', 'layout');
 }
 
 /**
@@ -884,6 +1029,42 @@ export async function addPlatformStatement(caseId: string, formData: FormData) {
     },
     actor: staffActor(staff),
   });
+  await refreshCaseStory(caseId);
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+/**
+ * Changes a platform statement of a case that nobody has planned research for.
+ * @param caseId - The case id.
+ * @param statementId - The statement id.
+ * @param formData - The form with `kind`, `text` and `sourceUrl`.
+ * @returns The names of what failed: `case`, `invalid`, `words`, `missing` or `researched`; none when saved.
+ */
+export async function updatePlatformStatement(
+  caseId: string,
+  statementId: string,
+  formData: FormData,
+) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(statementId).success) {
+    return ['case'];
+  }
+
+  const field = (name: string) => {
+    const entry = formData.get(name);
+
+    return typeof entry === 'string' && entry.trim() !== '' ? entry : undefined;
+  };
+
+  const result = await updateStatement({
+    caseId,
+    id: statementId,
+    input: { kind: field('kind'), text: field('text'), sourceUrl: field('sourceUrl') },
+    actor: staffActor(staff),
+  });
   revalidatePath('/', 'layout');
 
   return result === 'ok' ? [] : [result];
@@ -899,24 +1080,326 @@ export async function removePlatformStatement(caseId: string, statementId: strin
 
   if (z.uuid().safeParse(caseId).success && z.uuid().safeParse(statementId).success) {
     await removeStatement({ caseId, id: statementId, actor: staffActor(staff) });
+    await refreshCaseStory(caseId);
     revalidatePath('/', 'layout');
   }
 }
 
 /**
- * Approves the analysis brief for a case: the decision to spend the compute. Preflight runs again first, so a brief that no longer
- * passes is not approved. Only a person can do this; the assistant has no tool for it.
- * @param caseId - The case id.
- * @returns `approved` with the run number, `blocked` with what stops it, or `missing` when there is no such case.
+ * Gives the browser a one-minute address to upload an evidence file to IPFS, so the file never passes through our server.
+ * @param fileName - The name of the file about to be uploaded.
+ * @returns The upload address, or why there is none: `off` (Pinata is not set up) or `failed`.
  */
-export async function approveAnalysisBrief(caseId: string) {
+export async function startEvidenceUpload(fileName: string) {
+  await requireStaff();
+
+  const url = await signUpload(fileName.slice(0, 200));
+
+  return url === 'off' || url === 'failed' ? { error: url } : { url };
+}
+
+/**
+ * Reads one alleged action from a form and checks it.
+ * @param formData - The form with `title` and optionally `kind`, `occurredOn`, `jurisdiction` and `note`.
+ * @returns The action, or the names of what failed: `words`, `jurisdictions` or `invalid`.
+ */
+function parseAction(formData: FormData) {
+  const parsed = ActionValidation.safeParse({
+    kind: blankToNull(formData.get('kind')) ?? undefined,
+    title: blankToNull(formData.get('title')) ?? undefined,
+    note: blankToNull(formData.get('note')) ?? undefined,
+    occurredOn: blankToNull(formData.get('occurredOn')) ?? undefined,
+    jurisdiction: blankToNull(formData.get('jurisdiction')) ?? undefined,
+  });
+
+  if (parsed.success) {
+    return { action: parsed.data };
+  }
+
+  const { issues } = parsed.error;
+
+  if (issues.some((issue) => issue.message === 'forbidden_words')) {
+    return { problems: ['words'] };
+  }
+
+  return {
+    problems: issues.some((issue) => issue.path.includes('jurisdiction'))
+      ? ['jurisdictions']
+      : ['invalid'],
+  };
+}
+
+/**
+ * Adds an action the claimants allege against a case's suspected people and groups: what was done, its kind, and optionally when,
+ * where and notes. The text must keep to the house language, because it records an allegation and never declares fraud.
+ * @param caseId - The case id.
+ * @param formData - The submitted form, with `kind`, `title` and optionally `occurredOn`, `jurisdiction` and `note`.
+ * @returns The names of what failed: `words` when the text declares fraud, `jurisdictions` when it is not a known jurisdiction,
+ *   `invalid` for anything else, `case` when the case is not found; none when added.
+ */
+export async function addCaseAction(caseId: string, formData: FormData) {
+  const staff = await requireStaff();
+  const parsed = parseAction(formData);
+
+  if (parsed.problems !== undefined) {
+    return parsed.problems;
+  }
+
+  if (!z.uuid().safeParse(caseId).success) {
+    return ['case'];
+  }
+
+  const found = await db.transaction(async (tx) => {
+    const [exists] = await tx
+      .select({ id: caseSchema.id })
+      .from(caseSchema)
+      .where(eq(caseSchema.id, caseId));
+
+    if (!exists) {
+      return false;
+    }
+
+    const [added] = await tx
+      .insert(caseActionSchema)
+      .values({ ...parsed.action, caseId, createdBy: staff.id })
+      .returning({ id: caseActionSchema.id });
+
+    await recordStaffAction(tx, {
+      actor: staffActor(staff),
+      action: 'case_action_added',
+      target: { type: 'case', id: caseId },
+      details: { action: added?.id ?? '' },
+    });
+
+    return true;
+  });
+  revalidatePath('/', 'layout');
+
+  return found ? [] : ['case'];
+}
+
+/**
+ * Changes an alleged action of a case. Whatever the form leaves blank is cleared. The text must keep to the house language.
+ * @param caseId - The case id.
+ * @param actionId - The action id.
+ * @param formData - The submitted form, as for `addCaseAction`.
+ * @returns The names of what failed, as for `addCaseAction`; none when saved.
+ */
+export async function updateCaseAction(caseId: string, actionId: string, formData: FormData) {
+  const staff = await requireStaff();
+  const parsed = parseAction(formData);
+
+  if (parsed.problems !== undefined) {
+    return parsed.problems;
+  }
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(actionId).success) {
+    return ['case'];
+  }
+
+  const found = await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(caseActionSchema)
+      .set({
+        kind: parsed.action.kind ?? null,
+        title: parsed.action.title,
+        note: parsed.action.note ?? null,
+        occurredOn: parsed.action.occurredOn ?? null,
+        jurisdiction: parsed.action.jurisdiction ?? null,
+      })
+      .where(and(eq(caseActionSchema.id, actionId), eq(caseActionSchema.caseId, caseId)))
+      .returning({ id: caseActionSchema.id });
+
+    if (updated.length === 0) {
+      return false;
+    }
+
+    await recordStaffAction(tx, {
+      actor: staffActor(staff),
+      action: 'case_action_updated',
+      target: { type: 'case', id: caseId },
+      details: { action: actionId },
+    });
+
+    return true;
+  });
+  revalidatePath('/', 'layout');
+
+  return found ? [] : ['case'];
+}
+
+/**
+ * Removes an alleged action from a case. The evidence attached to it stays on the case, no longer attached to anything.
+ * @param caseId - The case id.
+ * @param actionId - The action id.
+ */
+export async function removeCaseAction(caseId: string, actionId: string) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(actionId).success) {
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    const removed = await tx
+      .delete(caseActionSchema)
+      .where(and(eq(caseActionSchema.id, actionId), eq(caseActionSchema.caseId, caseId)))
+      .returning({ id: caseActionSchema.id });
+
+    if (removed.length === 0) {
+      return;
+    }
+
+    await recordStaffAction(tx, {
+      actor: staffActor(staff),
+      action: 'case_action_removed',
+      target: { type: 'case', id: caseId },
+      details: { action: actionId },
+    });
+  });
+  revalidatePath('/', 'layout');
+}
+
+/**
+ * Adds evidence to a case: a video, image or document already pinned to IPFS, a link, or a wallet or transaction. Only the CID is kept.
+ * @param caseId - The case id.
+ * @param formData - The form with `type`, `title`, the fields that type needs, `lawful`, and `pinId` for a video, image or document.
+ * @returns The name of what failed: `case`, `invalid`, `words`, `full`, `file`, `statement` or `taken`; none when added.
+ */
+export async function addCaseEvidence(caseId: string, formData: FormData) {
   const staff = await requireStaff();
 
   if (!z.uuid().safeParse(caseId).success) {
+    return ['case'];
+  }
+
+  const field = (name: string) => {
+    const entry = formData.get(name);
+
+    return typeof entry === 'string' && entry.trim() !== '' ? entry : undefined;
+  };
+
+  const result = await addEvidence({
+    caseId,
+    input: {
+      type: field('type'),
+      title: field('title'),
+      note: field('note'),
+      sourceUrl: field('sourceUrl'),
+      capturedOn: field('capturedOn'),
+      chain: field('chain'),
+      reference: field('reference'),
+      statementId: field('statementId'),
+      actionId: field('actionId'),
+      lawful: formData.get('lawful') === 'on',
+    },
+    pinId: field('pinId') ?? null,
+    actor: staffActor(staff),
+  });
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+/**
+ * Changes the details of evidence on a case. Its kind and its file cannot change.
+ * @param caseId - The case id.
+ * @param evidenceId - The evidence id.
+ * @param formData - The form with `type` (unchanged), `title` and the fields that type needs.
+ * @returns The name of what failed: `case`, `invalid`, `words`, `missing`, `type`, `statement` or `action`; none when saved.
+ */
+export async function updateCaseEvidence(caseId: string, evidenceId: string, formData: FormData) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(evidenceId).success) {
+    return ['case'];
+  }
+
+  const field = (name: string) => {
+    const entry = formData.get(name);
+
+    return typeof entry === 'string' && entry.trim() !== '' ? entry : undefined;
+  };
+
+  const result = await updateEvidence({
+    caseId,
+    id: evidenceId,
+    input: {
+      type: field('type'),
+      title: field('title'),
+      note: field('note'),
+      sourceUrl: field('sourceUrl'),
+      capturedOn: field('capturedOn'),
+      chain: field('chain'),
+      reference: field('reference'),
+      statementId: field('statementId'),
+      actionId: field('actionId'),
+    },
+    actor: staffActor(staff),
+  });
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+/**
+ * Records the review of a piece of off-chain evidence.
+ * @param caseId - The case id.
+ * @param evidenceId - The evidence id.
+ * @param formData - The form with `state` and `note`.
+ * @returns The name of what failed: `case`, `invalid`, `words`, `missing` or `type`; none when saved.
+ */
+export async function reviewCaseEvidence(caseId: string, evidenceId: string, formData: FormData) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(evidenceId).success) {
+    return ['case'];
+  }
+
+  const note = formData.get('note');
+  const result = await reviewEvidence({
+    caseId,
+    id: evidenceId,
+    input: {
+      state: formData.get('state'),
+      note: typeof note === 'string' && note.trim() !== '' ? note : undefined,
+    },
+    actor: staffActor(staff),
+  });
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+/**
+ * Removes evidence from a case and stops pinning its file.
+ * @param caseId - The case id.
+ * @param evidenceId - The evidence id.
+ */
+export async function removeCaseEvidence(caseId: string, evidenceId: string) {
+  const staff = await requireStaff();
+
+  if (z.uuid().safeParse(caseId).success && z.uuid().safeParse(evidenceId).success) {
+    await removeEvidence({ caseId, id: evidenceId, actor: staffActor(staff) });
+    revalidatePath('/', 'layout');
+  }
+}
+
+/**
+ * Approves the analysis brief for one statement of a case: the decision to spend the compute. Preflight runs again first, so a brief that no longer
+ * passes is not approved. Only a person can do this; the assistant has no tool for it.
+ * @param caseId - The case id.
+ * @param statementId - The statement to research.
+ * @returns `approved` with the run number, `blocked` with what stops it, or `missing` when there is no such case.
+ */
+export async function approveAnalysisBrief(caseId: string, statementId: string) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(caseId).success || !z.uuid().safeParse(statementId).success) {
     return { status: 'missing' as const };
   }
 
-  const result = await approveBrief({ caseId, actor: staffActor(staff) });
+  const result = await approveBrief({ caseId, statementId, actor: staffActor(staff) });
   revalidatePath('/', 'layout');
 
   if (!result) {
@@ -960,7 +1443,75 @@ export async function saveCaseReport(caseId: string, formData: FormData) {
     return [problem];
   }
 
+  await refreshCaseStory(caseId);
   revalidatePath('/', 'layout');
 
   return [];
+}
+
+/**
+ * A person's yes or no to a report the assistant has reviewed. Yes publishes it as the case's report; no sends it back and it is
+ * never shown. It is only for the staff area: no MCP tool can answer, so an assistant cannot approve its own report.
+ * @param options - The report and the answer.
+ * @param options.caseId - The case id.
+ * @param options.run - The analysis run number.
+ * @param options.version - The version of that analysis's report.
+ * @param options.approve - True for yes, false for no.
+ * @returns The names of what failed: `case` or `state` (the report is not waiting for a person); none when answered.
+ */
+export async function answerCaseReport(options: {
+  caseId: string;
+  run: number;
+  version: number;
+  approve: boolean;
+}) {
+  const staff = await requireStaff();
+
+  if (!z.uuid().safeParse(options.caseId).success) {
+    return ['case'];
+  }
+
+  const result = await answerReport({ ...options, actor: staffActor(staff) });
+  await refreshCaseStory(options.caseId);
+  revalidatePath('/', 'layout');
+
+  return result === 'ok' ? [] : [result];
+}
+
+const ContactDecisionValidation = z.object({
+  requestId: z.uuid(),
+  approve: z.boolean(),
+  note: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Staff's yes or no to an organisation's request to contact the claimants of a case. A yes asks the claimants who agreed to be
+ * asked; a no needs a reason, which the organisation reads. The decision is recorded in the staff audit.
+ * @param input - The decision.
+ * @param input.requestId - The request id.
+ * @param input.approve - True for yes.
+ * @param input.note - The reason for a no.
+ * @returns `note` when a no has no reason or the reason is too long, `state` when the request is no longer waiting, else `ok`.
+ */
+export async function decideContactRequest(input: {
+  requestId: string;
+  approve: boolean;
+  note?: string;
+}): Promise<'ok' | 'note' | 'state'> {
+  const staff = await requireStaff();
+  const parsed = ContactDecisionValidation.safeParse(input);
+
+  if (!parsed.success || (!parsed.data.approve && !parsed.data.note)) {
+    return 'note';
+  }
+
+  const result = await decideRequest({ ...parsed.data, actor: staffActor(staff) });
+
+  if (result.problem) {
+    return 'state';
+  }
+
+  revalidatePath('/', 'layout');
+
+  return 'ok';
 }

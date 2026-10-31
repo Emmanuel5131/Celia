@@ -40,6 +40,10 @@ export const Env = createEnv({
     OPENSANCTIONS_API_KEY: z.string().min(1).optional(),
     /** OpenCorporates, for the company registry lookup on an application. Without it the lookup shows as not set up. */
     OPENCORPORATES_API_TOKEN: z.string().min(1).optional(),
+    /** Pinata's JWT, to pin evidence files to IPFS. Without it staff cannot upload files. Files are public and permanent once pinned. */
+    PINATA_JWT: z.string().min(1).optional(),
+    /** The Pinata gateway host that serves pinned files, such as `example.mypinata.cloud`. Without it the public Pinata gateway is used. */
+    PINATA_GATEWAY: z.string().min(1).optional(),
     /** The Sandworm MCP that staff research runs on. */
     SANDWORM_MCP_URL: z.url().default('https://mcp.sandwormlab.xyz/mcp'),
     /** Celia's client id at Sandworm, from the one-time registration in `docs/ops/sandworm.md`. Without it staff cannot connect Sandworm. */
@@ -92,6 +96,8 @@ export const Env = createEnv({
     INSTITUTION_PRICE: process.env.INSTITUTION_PRICE,
     OPENSANCTIONS_API_KEY: process.env.OPENSANCTIONS_API_KEY,
     OPENCORPORATES_API_TOKEN: process.env.OPENCORPORATES_API_TOKEN,
+    PINATA_JWT: process.env.PINATA_JWT,
+    PINATA_GATEWAY: process.env.PINATA_GATEWAY,
     SANDWORM_MCP_URL: process.env.SANDWORM_MCP_URL,
     SANDWORM_CLIENT_ID: process.env.SANDWORM_CLIENT_ID,
     SANDWORM_WORKSPACE_ID: process.env.SANDWORM_WORKSPACE_ID,

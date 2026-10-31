@@ -6,7 +6,9 @@ import { notFound } from 'next/navigation';
 import * as z from 'zod';
 import {
   deleteClaim,
+  removeFollowUpDetails,
   removeOwnershipEvidence,
+  saveFollowUpDetails,
   saveStatement,
   sendOwnershipProof,
   sendOwnershipVideo,
@@ -19,6 +21,7 @@ import { ClaimSummary } from '@/components/claims/ClaimSummary';
 import { ClaimWizard } from '@/components/claims/ClaimWizard';
 import type { WizardKey } from '@/components/claims/ClaimWizard';
 import { DeleteClaimDialog } from '@/components/claims/DeleteClaimDialog';
+import { FollowUpCard } from '@/components/claims/FollowUpCard';
 import { OwnershipCard } from '@/components/claims/OwnershipCard';
 import { StatementCard } from '@/components/claims/StatementCard';
 import { SubmitClaimCard } from '@/components/claims/SubmitClaimCard';
@@ -28,6 +31,7 @@ import { sentAfterSeal } from '@/libs/cases/Cases';
 import { listClaimExtras } from '@/libs/claims/ClaimExtras';
 import { listProofFiles } from '@/libs/claims/ClaimProofs';
 import { countOthersOnOperator, getClaim } from '@/libs/claims/Claims';
+import { readFollowUp } from '@/libs/claims/FollowUp';
 import { Link } from '@/libs/I18nNavigation';
 import { claimSteps } from '@/utils/claims/ClaimSteps';
 
@@ -112,14 +116,23 @@ export default async function ClaimPage(props: ClaimPageProps) {
     {
       key: 'send',
       panel: (
-        <SubmitClaimCard
-          sent={!draft}
-          ready={Boolean(claim.statement)}
-          others={others}
-          late={await sentAfterSeal(claim)}
-          platform={claim.platformName}
-          action={submitClaim.bind(null, claim.id)}
-        />
+        <div className="grid gap-6">
+          <SubmitClaimCard
+            sent={!draft}
+            ready={Boolean(claim.statement)}
+            others={others}
+            late={await sentAfterSeal(claim)}
+            platform={claim.platformName}
+            action={submitClaim.bind(null, claim.id)}
+          />
+          {!draft && (
+            <FollowUpCard
+              saved={await readFollowUp(claim.id)}
+              action={saveFollowUpDetails.bind(null, claim.id)}
+              remove={removeFollowUpDetails.bind(null, claim.id)}
+            />
+          )}
+        </div>
       ),
     },
   ];

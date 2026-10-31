@@ -11,12 +11,15 @@ const test = {
     ['13 Sep', '19'],
     ['14 Sep', '0'],
   ],
-  chart: {
-    type: 'bar',
-    x: ['13 Sep', '14 Sep'],
-    series: [{ name: 'Outgoing to users', values: [19, 0] }],
-    threshold: { value: 1, label: 'Fixed threshold' },
-  },
+  charts: [
+    {
+      type: 'bar',
+      x: ['13 Sep', '14 Sep'],
+      series: [{ name: 'Outgoing to users', values: [19, 0] }],
+      threshold: { value: 1, label: 'Fixed threshold' },
+    },
+  ],
+  notes: ['Counts every successful payment into the contract.'],
 };
 
 const findings = {
@@ -42,7 +45,9 @@ describe('findings file', () => {
   });
 
   it('accepts a test without a chart', () => {
-    expect(FindingsValidation.safeParse(withTest({ chart: undefined })).success).toBeTruthy();
+    expect(
+      FindingsValidation.safeParse(withTest({ charts: undefined, notes: undefined })).success,
+    ).toBeTruthy();
   });
 
   it('refuses a verdict that is not one of the four', () => {
@@ -70,9 +75,9 @@ describe('findings file', () => {
   });
 
   it('refuses a chart whose series is as long as another number of points', () => {
-    const chart = { ...test.chart, series: [{ name: 'Outgoing to users', values: [19] }] };
+    const chart = { ...test.charts[0], series: [{ name: 'Outgoing to users', values: [19] }] };
 
-    expect(FindingsValidation.safeParse(withTest({ chart })).success).toBeFalsy();
+    expect(FindingsValidation.safeParse(withTest({ charts: [chart] })).success).toBeFalsy();
   });
 
   it('refuses two tests with the same id', () => {

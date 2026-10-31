@@ -59,14 +59,14 @@ export function hashReport(report: unknown) {
 
 /**
  * The description of a case, written from its report and saved on the case: the estimate on the first line, then up to two
- * findings the chain proves, each beside what the platform said. It states findings only, never a verdict.
+ * statements the chain shows to be false, each beside what the platform said. It states findings only, never a verdict.
  * @param report - The case's report.
  * @returns The description, or null when the report has neither an estimate nor a proven finding.
  */
 export function describeCase(report: Report) {
   const { estimate, checks } = report;
   const lines = checks
-    .filter((check) => check.result === 'proven')
+    .filter((check) => check.result === 'proven_false')
     .slice(0, 2)
     .map((check) => `The platform said: ${check.claim} ${check.evidence}`);
 
@@ -84,11 +84,13 @@ export function describeCase(report: Report) {
  * loss that can be read as dollars. The loss decides when a case starts building evidence, so a report that gives none is refused,
  * not saved with no effect.
  * @param json - The findings as parsed JSON.
- * @returns The report, or the problem: `schema`, `words`, `table` (a test has no table) or `loss`.
+ * @returns The report, or the problem: `schema`, `words`, `table` (a test has no table), `notebook` (no notebook link), `one_check` (more or fewer than one check), `analysis` (no commitment) or `loss`.
  */
 export function readNewReport(
   json: unknown,
-): { report: Report } | { problem: 'schema' | 'words' | 'table' | 'loss' } {
+):
+  | { report: Report }
+  | { problem: 'schema' | 'words' | 'table' | 'notebook' | 'one_check' | 'analysis' | 'loss' } {
   const parsed = NewReportValidation.safeParse(json);
 
   if (!parsed.success) {
@@ -98,7 +100,19 @@ export function readNewReport(
       return { problem: 'words' };
     }
 
-    return { problem: messages.has('table_required') ? 'table' : 'schema' };
+    if (messages.has('table_required')) {
+      return { problem: 'table' };
+    }
+
+    if (messages.has('notebook_required')) {
+      return { problem: 'notebook' };
+    }
+
+    if (messages.has('one_check')) {
+      return { problem: 'one_check' };
+    }
+
+    return { problem: messages.has('commitment_required') ? 'analysis' : 'schema' };
   }
 
   const { estimate } = parsed.data;

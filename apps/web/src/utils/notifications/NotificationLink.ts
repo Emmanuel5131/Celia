@@ -28,6 +28,12 @@ export function notificationPath(type: NotificationType, data: Record<string, st
     case 'counsel_review_reset': {
       return '/dashboard/settings';
     }
+    case 'contact_request': {
+      return '/dashboard/requests';
+    }
+    case 'contact_request_decided': {
+      return '/dashboard/contact';
+    }
     case 'application_rejected': {
       return '/dashboard';
     }

@@ -1,7 +1,19 @@
-import { Document, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import {
+  Document,
+  Line,
+  Link,
+  Page,
+  Polyline,
+  Rect,
+  StyleSheet,
+  Svg,
+  Text,
+  View,
+} from '@react-pdf/renderer';
 import type { ReportView } from '@/libs/cases/Reports';
+import { formatValue, layoutChart } from '@/utils/cases/ChartLayout';
 import { pdfSafe } from '@/utils/cases/ReportPdf';
-import type { CheckResult } from '@/validations/ReportValidation';
+import type { Chart, CheckResult } from '@/validations/ReportValidation';
 
 // The colours are the Celia tokens (docs/DESIGN.md §2). A PDF has no stylesheet to read them from, so they are written out here once.
 const color = {
@@ -10,7 +22,12 @@ const color = {
   line: '#C4C8CF',
   paper: '#F5F2EA',
   seal: '#991F38',
+  soft: '#7F8DA3',
+  tint: '#B9C2D0',
 };
+
+// Series are told apart by tone, as on the report page.
+const seriesColors = [color.ink, color.soft, color.muted, color.tint];
 
 const styles = StyleSheet.create({
   page: {
@@ -57,6 +74,9 @@ const styles = StyleSheet.create({
   test: { marginBottom: 12 },
   testTitle: { fontSize: 10.5, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
   testSummary: { fontSize: 9, color: color.muted, marginBottom: 6, lineHeight: 1.35 },
+  chart: { marginBottom: 10 },
+  chartTitle: { fontSize: 9, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
+  note: { fontSize: 8.5, color: color.muted, lineHeight: 1.35, marginBottom: 2 },
   term: { fontSize: 8, color: color.muted, marginBottom: 1 },
   value: { fontSize: 9, marginBottom: 7, lineHeight: 1.35 },
   mono: { fontFamily: 'Courier', fontSize: 7.5 },
@@ -103,7 +123,8 @@ export type ReportPdfLabels = {
   page: string;
 };
 
-const resultColor = (result: CheckResult) => (result === 'not_proven' ? color.seal : color.ink);
+const resultColor = (result: CheckResult) =>
+  result === 'not_proven' || result === 'proven_false' ? color.seal : color.ink;
 
 function Cell(props: { width: string; children: React.ReactNode }) {
   return <View style={[styles.cell, { width: props.width }]}>{props.children}</View>;
@@ -158,6 +179,82 @@ function ChecksTable(props: { report: ReportView; labels: ReportPdfLabels }) {
   );
 }
 
+const chartBox = { width: 500, height: 150 };
+
+function ChartFigure(props: { chart: Chart }) {
+  const { chart } = props;
+  const layout = layoutChart(chart, chartBox);
+
+  return (
+    <View style={styles.chart} wrap={false}>
+      {chart.title && <Text style={styles.chartTitle}>{pdfSafe(chart.title)}</Text>}
+      {chart.series.length > 1 && (
+        <Text style={styles.note}>
+          {pdfSafe(chart.series.map((series) => series.name).join(' · '))}
+        </Text>
+      )}
+      <Svg
+        width={chartBox.width}
+        height={chartBox.height}
+        viewBox={`0 0 ${chartBox.width} ${chartBox.height}`}
+      >
+        {layout.grid.map((y) => (
+          <Line
+            key={y}
+            x1={layout.plot.left}
+            x2={layout.plot.right}
+            y1={y}
+            y2={y}
+            stroke={color.line}
+            strokeWidth={0.5}
+          />
+        ))}
+        {layout.bars.map((bar) => (
+          <Rect
+            key={`${bar.series}-${bar.index}`}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            fill={seriesColors[bar.series] ?? color.ink}
+          />
+        ))}
+        {layout.lines.map((line) => (
+          <Polyline
+            key={line.series}
+            points={line.points.map((point) => `${point.x},${point.y}`).join(' ')}
+            stroke={seriesColors[line.series] ?? color.ink}
+            strokeWidth={1.5}
+            fill="none"
+          />
+        ))}
+        {layout.threshold && (
+          <Line
+            x1={layout.plot.left}
+            x2={layout.plot.right}
+            y1={layout.threshold.y}
+            y2={layout.threshold.y}
+            stroke={color.seal}
+            strokeWidth={1}
+            strokeDasharray="4 3"
+          />
+        )}
+      </Svg>
+      <Text style={styles.note}>
+        {pdfSafe(
+          [
+            chart.x.length > 0 ? `${chart.x[0]} – ${chart.x.at(-1)}` : '',
+            `max ${formatValue(layout.max, chart.unit)}`,
+            layout.threshold?.label ?? '',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        )}
+      </Text>
+    </View>
+  );
+}
+
 function TestTable(props: {
   test: ReportView['snapshot']['tests'][number];
   labels: ReportPdfLabels;
@@ -171,6 +268,9 @@ function TestTable(props: {
         <Text style={styles.testTitle}>{pdfSafe(test.title)}</Text>
         <Text style={styles.testSummary}>{pdfSafe(test.summary)}</Text>
       </View>
+      {test.charts?.map((chart) => (
+        <ChartFigure key={chart.title ?? chart.series[0]?.name} chart={chart} />
+      ))}
       {test.columns && test.rows ? (
         <View style={styles.table}>
           <View style={styles.headRow} wrap={false}>
@@ -194,6 +294,11 @@ function TestTable(props: {
       ) : (
         <Text style={styles.testSummary}>{props.labels.noTable}</Text>
       )}
+      {test.notes?.map((note) => (
+        <Text key={note} style={styles.note}>
+          {pdfSafe(note)}
+        </Text>
+      ))}
     </View>
   );
 }

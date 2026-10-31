@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/libs/I18nNavigation';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('NotFound');
+
+  return { title: t('title') };
+}
 
 /**
  * The page for an address that does not exist. It is also what someone sees for a page they may not open, such as the staff area,

@@ -9,6 +9,8 @@ const notes = [
   'The notebook writes ./data/<case number in lower case>/run-<run>/findings.json, for example ./data/cb-0142/run-1/findings.json, with json.dump. Read it back whole with read_file (up to 256 KB a call; page with nextOffset). Read the file, not the printed output, which Sandworm clips.',
   'Each test carries its own table, a verdict from a rule fixed before the run, and a summary sentence built by the notebook from its own numbers. Do not rewrite a number or a verdict.',
   'Files in the workspace are shared by every notebook: keep the case number in every path.',
+  'Each statement of the platform is its own analysis: one approved plan, one notebook, one report. Never test two statements in one notebook or one report.',
+  'A report is attached to exactly one notebook. Publish it as unlisted (publish_notebook with visibility unlisted) before you compose the report, and put its link in method.notebookUrl. save_case_report refuses a report without it.',
   'Never declare fraud. Say what the chain shows and what it does not. A claim the chain cannot show is not_checkable.',
 ];
 

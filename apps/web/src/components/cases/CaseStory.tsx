@@ -1,69 +1,71 @@
-import { getTranslations } from 'next-intl/server';
+import { getFormatter, getTranslations } from 'next-intl/server';
 import { ReportedPattern } from '@/components/cases/ReportedPattern';
 import { PageSection } from '@/components/layout/PageSection';
-import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import type { ReportedPattern as Pattern } from '@/libs/cases/CaseClaims';
-import type { Report } from '@/validations/ReportValidation';
+import { StatCard } from '@/components/overview/StatCard';
+import type { CaseStoryView } from '@/libs/cases/CaseStory';
 
 /**
- * What may have happened, told in the order it happened: what claimants report, what the platform said beside what the chain
- * shows, and how far it reaches. A hollow marker is the claimants' own account; a filled one is what the chain shows. It closes
- * with the note that none of this is a finding of fraud. Without a report it falls back to the claimants' account alone.
+ * What may have happened, in short: what claimants report, how far it reaches in two figures, and where the platform's words and the
+ * chain disagree. It reads the case's stored story, and closes with the note that none of this is a finding of fraud.
  * @param props - The section props.
- * @param props.pattern - The most reported kind of loss, or null when there are too few claims to count.
- * @param props.report - The case's report, or null when it has none yet.
+ * @param props.story - The stored story of the case, cut to what the reader may see, or null when there is none.
  * @returns The section, or nothing when there is nothing to tell.
  */
-export async function CaseStory(props: { pattern: Pattern | null; report: Report | null }) {
+export async function CaseStory(props: { story: CaseStoryView | null }) {
   const t = await getTranslations('CaseStory');
   const note = await getTranslations('ReportedPattern');
-  const { report } = props;
-  const proven = report?.checks.filter((check) => check.result === 'proven').slice(0, 2) ?? [];
-  const estimate = report?.estimate;
+  const format = await getFormatter();
+  const { story } = props;
 
-  if (!props.pattern && proven.length === 0 && !estimate && !report) {
+  if (
+    !story ||
+    (!story.claimantsSay &&
+      !story.reach &&
+      story.platformSaidVersusChain.length === 0 &&
+      !story.headline)
+  ) {
     return null;
   }
 
-  const told = props.pattern !== null || proven.length > 0 || estimate !== undefined;
-  // A count lets the sentence say "1 wallet" or "2,040 wallets"; a figure the report gave in words is shown as written.
-  const wallets = estimate && /^\d+$/u.test(estimate.wallets) ? Number(estimate.wallets) : null;
-  let scale: string | null = null;
-
-  if (estimate && wallets !== null) {
-    scale = t('scale_count', { count: wallets, losses: estimate.losses });
-  } else if (estimate) {
-    scale = t('scale_text', { wallets: estimate.wallets, losses: estimate.losses });
-  }
+  const { claimantsSay, reach } = story;
+  // A count is formatted for the reader; a figure the report gave in words is shown as written.
+  const wallets =
+    reach && /^\d+$/u.test(reach.wallets) ? format.number(Number(reach.wallets)) : reach?.wallets;
+  const told = claimantsSay !== null || reach !== null || story.platformSaidVersusChain.length > 0;
 
   return (
     <PageSection title={t('title')}>
-      <div className="grid max-w-3xl gap-6 pl-6">
+      <div className="grid max-w-3xl gap-6">
         {told ? (
-          <Timeline>
-            {props.pattern && (
-              <TimelineItem marker="hollow">
-                <p className="text-sm text-ink-muted">{t('claimants_label')}</p>
-                <ReportedPattern pattern={props.pattern} bare />
-              </TimelineItem>
+          <>
+            {claimantsSay && (
+              <ReportedPattern
+                pattern={{
+                  type: claimantsSay.kind,
+                  count: claimantsSay.claimants,
+                  total: claimantsSay.of,
+                  confirmed: claimantsSay.confirmed,
+                }}
+                bare
+              />
             )}
-            {proven.map((check) => (
-              <TimelineItem key={check.claim} marker="filled">
+            {reach && wallets && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <StatCard size="sm" label={t('wallets_label')} value={wallets} />
+                <StatCard size="sm" label={t('losses_label')} value={reach.estimatedLoss} />
+              </div>
+            )}
+            {story.platformSaidVersusChain.map((item) => (
+              <div key={item.platformSaid} className="grid gap-1 border-l border-border pl-4">
                 <p className="text-sm text-ink-muted">{t('platform_label')}</p>
-                <p>{check.claim}</p>
-                <p className="mt-3 text-sm text-ink-muted">{t('chain_label')}</p>
-                <p>{check.evidence}</p>
-              </TimelineItem>
+                <p>{item.platformSaid}</p>
+                <p className="mt-2 text-sm text-ink-muted">{t('chain_label')}</p>
+                <p>{item.chainShows}</p>
+              </div>
             ))}
-            {scale && (
-              <TimelineItem marker="filled">
-                <p className="text-sm text-ink-muted">{t('scale_label')}</p>
-                <p>{scale}</p>
-              </TimelineItem>
-            )}
-          </Timeline>
+          </>
         ) : (
-          <p>{report?.headline}</p>
+          <p>{story.headline}</p>
         )}
         <p className="text-sm text-ink-muted">{note('note')}</p>
       </div>

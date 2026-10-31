@@ -9,6 +9,9 @@ import { commitmentHash } from '@/utils/analysis/Commitment';
 
 /** A brief staff approved, as the staff page and the assistant see it. */
 export type ApprovedBrief = {
+  id: string;
+  /** The statement it checks. Null for a plan approved before each statement had its own. */
+  statementId: string | null;
   run: number;
   brief: Brief;
   commitment: string;
@@ -16,6 +19,8 @@ export type ApprovedBrief = {
 };
 
 const toApproved = (row: typeof caseAnalysisSchema.$inferSelect): ApprovedBrief => ({
+  id: row.id,
+  statementId: row.statementId,
   run: row.run,
   brief: row.brief,
   commitment: row.commitment,
@@ -25,10 +30,11 @@ const toApproved = (row: typeof caseAnalysisSchema.$inferSelect): ApprovedBrief 
 /**
  * Checks whether a case is ready for an analysis and builds the brief, without saving anything.
  * @param caseId - The case id.
- * @returns The problems and the brief (null while anything blocks), or null when there is no such case.
+ * @param statementId - The statement to research.
+ * @returns The problems and the brief (null while anything blocks), or null when there is no such case or statement.
  */
-export async function previewBrief(caseId: string) {
-  const input = await loadBriefInput(caseId);
+export async function previewBrief(caseId: string, statementId: string) {
+  const input = await loadBriefInput(caseId, statementId);
 
   return input ? prepareAnalysis(input) : null;
 }
@@ -54,18 +60,20 @@ export async function listApprovedBriefs(caseId: string) {
  * audit, in one transaction. Approving is a person's step; no tool the assistant has can do it.
  * @param options - Who is approving what.
  * @param options.caseId - The case id.
+ * @param options.statementId - The statement to research.
  * @param options.actor - The staff member.
  * @returns The approved brief, or the problems that stop it, or null when there is no such case.
  */
 export async function approveBrief(options: {
   caseId: string;
+  statementId: string;
   actor: { id: string; email: string | null };
 }): Promise<
   | { status: 'approved'; approved: ApprovedBrief }
   | { status: 'blocked'; problems: PreflightProblem[] }
   | null
 > {
-  const prepared = await previewBrief(options.caseId);
+  const prepared = await previewBrief(options.caseId, options.statementId);
 
   if (!prepared) {
     return null;
@@ -88,6 +96,7 @@ export async function approveBrief(options: {
       .insert(caseAnalysisSchema)
       .values({
         caseId: options.caseId,
+        statementId: options.statementId,
         run,
         brief,
         templateId: brief.template.id,
@@ -105,7 +114,7 @@ export async function approveBrief(options: {
       actor: options.actor,
       action: 'analysis_brief_approved',
       target: { type: 'case', id: options.caseId },
-      details: { run: String(run), template: brief.template.id },
+      details: { run: String(run), template: brief.template.id, statement: options.statementId },
     });
 
     return { status: 'approved' as const, approved: toApproved(row) };

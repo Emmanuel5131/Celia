@@ -4,6 +4,7 @@ import { ClockCounterClockwiseIcon } from '@phosphor-icons/react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { DataTable } from '@/components/data-table/DataTable';
 import { createAppColumnHelper } from '@/components/data-table/table';
+import { Badge } from '@/components/ui/badge';
 import {
   Empty,
   EmptyDescription,
@@ -25,10 +26,15 @@ function When(props: { value: string }) {
   return format.dateTime(new Date(props.value), { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function Action(props: { value: StaffAuditItem['action'] }) {
+function Action(props: { value: StaffAuditItem['action']; via: StaffAuditItem['via'] }) {
   const t = useTranslations('Staff');
 
-  return t(`audit_action_${props.value}`);
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {t(`audit_action_${props.value}`)}
+      {props.via && <Badge variant="muted">{t('audit_via_assistant')}</Badge>}
+    </span>
+  );
 }
 
 const helper = createAppColumnHelper<StaffAuditItem>();
@@ -43,7 +49,7 @@ const columns = helper.columns([
   helper.accessor('action', {
     id: 'action',
     header: () => <Heading id="action" />,
-    cell: ({ getValue }) => <Action value={getValue()} />,
+    cell: ({ row }) => <Action value={row.original.action} via={row.original.via} />,
   }),
   helper.accessor((row) => row.target ?? '', {
     id: 'target',

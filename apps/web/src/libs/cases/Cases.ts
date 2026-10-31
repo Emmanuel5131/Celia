@@ -17,6 +17,7 @@ import {
 } from '@/models/Schema';
 import { caseNumber, readyToBuild, sortByStatus } from '@/utils/cases/Case';
 import type { CaseRow } from '@/utils/cases/Case';
+import type { CaseOperator } from '@/utils/cases/Operators';
 
 /** A case with the platform key that ties it to claims. The key never reaches the browser. */
 export type CaseDetail = CaseRow & { platformKey: string };
@@ -60,8 +61,7 @@ const caseSelect = {
   name: caseSchema.name,
   platformKey: caseSchema.platformKey,
   description: caseSchema.description,
-  operators: caseSchema.operators,
-  operatorJurisdictions: caseSchema.operatorJurisdictions,
+  operators: caseSchema.operatorRows,
   status: caseSchema.status,
   updatedAt: caseSchema.updatedAt,
   claimants:
@@ -74,7 +74,7 @@ const caseSelect = {
     sql<number>`count(distinct lower(${claimSchema.country})) filter (where ${sentInFile} and ${claimSchema.validatedAt} is not null)`.mapWith(
       Number,
     ),
-  hasReport: sql<boolean>`exists (select 1 from ${caseReportSchema} where ${caseReportSchema.caseId} = ${caseSchema.id})`,
+  hasReport: sql<boolean>`exists (select 1 from ${caseReportSchema} where ${caseReportSchema.caseId} = ${caseSchema.id} and ${caseReportSchema.review} = 'approved')`,
 };
 
 const toRow = (row: {
@@ -82,8 +82,7 @@ const toRow = (row: {
   seq: number;
   name: string;
   description: string | null;
-  operators: string | null;
-  operatorJurisdictions: string[];
+  operators: CaseOperator[];
   status: CaseRow['status'];
   updatedAt: Date;
   claimants: number;
@@ -96,7 +95,6 @@ const toRow = (row: {
   name: row.name,
   description: row.description,
   operators: row.operators,
-  operatorJurisdictions: row.operatorJurisdictions,
   status: row.status,
   claimants: row.claimants,
   confirmed: row.confirmed,
@@ -123,7 +121,8 @@ export async function listCases() {
     .groupBy(caseSchema.id, sealedEvents.at)
     .having(hasConfirmedClaim);
 
-  return sortByStatus(rows.map(toRow));
+  // The list never needs the people behind a platform: a case's page reads them, and only as many as the reader may see.
+  return sortByStatus(rows.map((row) => ({ ...toRow(row), operators: [] })));
 }
 
 /**

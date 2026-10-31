@@ -7,7 +7,9 @@ const notes = [
   'Say what the chain shows and what it does not. Never declare fraud, and avoid the words the checks refuse.',
   "Every test needs a table: columns and at least one row, up to 8 columns and 50 rows. A table from a notebook becomes a test's columns and rows.",
   'estimate.lossUsd is whole US dollars. It decides when a case starts building evidence.',
-  "Link the published notebook in method.notebookUrl (https). Use the attestation's input hash as method.commitment when the notebook has one.",
+  'Every report names the ONE notebook it came from: method.notebookUrl (https) is required. Publish the notebook as unlisted first, and never link a second one.',
+  "Use the approved plan's commitment as method.commitment. It is required: it is how Celia knows which statement of the platform the report answers.",
+  'A report answers exactly ONE statement of the platform: checks holds exactly one check, whose claim is that statement. Another statement is another analysis, with its own plan, notebook and report.',
 ];
 
 /**

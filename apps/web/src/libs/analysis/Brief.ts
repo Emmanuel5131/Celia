@@ -11,12 +11,17 @@ import { caseAnalysisSchema, claimAddressSchema, claimSchema } from '@/models/Sc
  * statement or proof. The payment time is read out of the stored check in SQL, so the check's `from` address (a claimant's wallet)
  * does not even reach this process.
  * @param caseId - The case id.
- * @returns The input, or null when there is no such case.
+ * @param statementId - The one statement of the platform the analysis checks.
+ * @returns The input, or null when there is no such case or the case has no such statement.
  */
-export async function loadBriefInput(caseId: string): Promise<BriefInput | null> {
-  const detail = await getCase(caseId);
+export async function loadBriefInput(
+  caseId: string,
+  statementId: string,
+): Promise<BriefInput | null> {
+  const [detail, statements] = await Promise.all([getCase(caseId), listStatements(caseId)]);
+  const focus = statements.findIndex((statement) => statement.id === statementId);
 
-  if (!detail) {
+  if (!detail || focus === -1) {
     return null;
   }
 
@@ -58,13 +63,12 @@ export async function loadBriefInput(caseId: string): Promise<BriefInput | null>
             ),
           );
 
-  const [statements, [runs]] = await Promise.all([
-    listStatements(caseId),
-    db
-      .select({ total: count() })
-      .from(caseAnalysisSchema)
-      .where(eq(caseAnalysisSchema.caseId, caseId)),
-  ]);
+  const [runs] = await db
+    .select({ total: count() })
+    .from(caseAnalysisSchema)
+    .where(
+      and(eq(caseAnalysisSchema.caseId, caseId), eq(caseAnalysisSchema.statementId, statementId)),
+    );
 
   const receiving: ChainAddress[] = [
     ...addresses,
@@ -100,6 +104,7 @@ export async function loadBriefInput(caseId: string): Promise<BriefInput | null>
       sourceUrl,
       ...(saidOn && { saidOn }),
     })),
+    focus,
     runs: runs?.total ?? 0,
     now: new Date(),
   };

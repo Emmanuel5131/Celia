@@ -96,6 +96,12 @@ export function SubmitClaimCard(props: {
                 {t('connect_label')}
               </Label>
             </div>
+            <div className="flex items-start gap-3">
+              <Checkbox id="claim-contact" name="contact" className="mt-1" />
+              <Label htmlFor="claim-contact" className="leading-relaxed font-normal">
+                {t('contact_label')}
+              </Label>
+            </div>
             {state.errors.includes('connect') && (
               <p role="alert" className="text-sm text-seal">
                 {t('error_connect')}

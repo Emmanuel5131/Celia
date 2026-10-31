@@ -131,9 +131,10 @@ const columns = helper.columns([
  * only to Celia staff and the lawyer who leads the case.
  * @param props - The table props.
  * @param props.claims - The claims in the case.
+ * @param props.preview - Show the rows alone, without search or paging, for a short look that links to the full list.
  * @returns The table, or the empty state.
  */
-export function CaseClaimantsTable(props: { claims: ClaimantRow[] }) {
+export function CaseClaimantsTable(props: { claims: ClaimantRow[]; preview?: boolean }) {
   const t = useTranslations('CaseClaimants');
   const claimLabels = useClaimLabels();
   const chainName = useChainName();
@@ -142,6 +143,8 @@ export function CaseClaimantsTable(props: { claims: ClaimantRow[] }) {
 
   return (
     <DataTable
+      toolbar={!props.preview}
+      pagination={!props.preview}
       columns={columns}
       data={props.claims}
       getRowId={(row) => row.id}

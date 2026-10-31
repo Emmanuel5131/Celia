@@ -27,6 +27,21 @@ export const reviewChecks = [
 
 export type ReviewCheck = (typeof reviewChecks)[number];
 
+/**
+ * The reasons staff pick from when they reject an application. Each has its own wording for the applicant, in the staff locale
+ * files (`app_reason_<reason>`), and none names a lookup or a list. The screen and the MCP server use the same ones.
+ */
+export const rejectReasons = [
+  'registry',
+  'domain',
+  'identity',
+  'callback',
+  'incomplete',
+  'scope',
+] as const;
+
+export type RejectReason = (typeof rejectReasons)[number];
+
 /** How many working days we aim to take over a review. It is shown to the applicant when they apply. */
 export const reviewDays = 5;
 
