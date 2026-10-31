@@ -1,0 +1,68 @@
+---
+/**
+ * A legal document (privacy notice, terms): numbered sections with an index beside them. The same section renders both,
+ * so they read and behave alike.
+ */
+import SectionHeader from './ui/SectionHeader.astro';
+import type { LegalDocument } from '../data/legal';
+import { pad2, richText } from '../lib/text';
+
+export interface Props { doc: LegalDocument }
+const { doc } = Astro.props;
+const html = (s: string) => richText(s).replace(/\n/g, '<br />');
+---
+<section class="section container" aria-labelledby="legal-title">
+  <SectionHeader id="legal-title" level="h1" align="left" eyebrow="Legal" title={doc.title} lead={doc.lead} wideLead />
+  <p class="updated">Last updated {doc.updated}</p>
+  <div class="doc">
+    <nav class="toc" aria-label="Sections">
+      <ol role="list">
+        {doc.sections.map((s, i) => <li><a href={`#section-${i + 1}`}><span class="num">{pad2(i + 1)}</span>{s.title}</a></li>)}
+      </ol>
+    </nav>
+    <div class="body">
+      {doc.sections.map((s, i) => (
+        <section id={`section-${i + 1}`} class="sec" aria-labelledby={`section-${i + 1}-title`}>
+          <h2 id={`section-${i + 1}-title`} class="h3 sec__title"><span class="num">{pad2(i + 1)}</span>{s.title}</h2>
+          {s.blocks.map((b) =>
+            'p' in b ? <p set:html={html(b.p)} />
+            : 'ul' in b ? <ul role="list">{b.ul.map((item) => <li set:html={html(item)} />)}</ul>
+            : (
+              <div class="tablewrap">
+                <table>
+                  <thead><tr>{b.table.head.map((h) => <th scope="col">{h}</th>)}</tr></thead>
+                  <tbody>{b.table.rows.map((row) => <tr>{row.map((cell) => <td set:html={html(cell)} />)}</tr>)}</tbody>
+                </table>
+              </div>
+            ))}
+        </section>
+      ))}
+    </div>
+  </div>
+</section>
+<style>
+  .updated { margin-top: 24px; font-size: var(--fs-small); color: var(--brand-ink); }
+  .doc { margin-top: 56px; display: grid; gap: 40px; align-items: start; }
+  .toc ol { display: grid; gap: 8px; }
+  .toc a { display: flex; gap: 12px; align-items: baseline; font-size: var(--fs-small); color: var(--brand-ink); transition: color .3s; }
+  .toc a:hover { color: var(--brand); }
+  .num { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--brand-soft); }
+  .body { display: grid; gap: 56px; max-width: 46rem; }
+  .sec { display: grid; gap: 16px; scroll-margin-top: 96px; }
+  .sec__title { display: flex; gap: 16px; align-items: baseline; padding-top: 24px; border-top: 1px solid var(--line); }
+  .sec p, .sec li { color: var(--brand-ink); }
+  .sec :global(strong) { color: var(--brand); font-weight: 700; }
+  .sec ul { display: grid; gap: 12px; }
+  .sec li { display: flex; gap: 12px; align-items: baseline; }
+  .sec li::before { content: ''; flex: none; width: 4px; height: 4px; background: currentColor; transform: translateY(-3px); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line-soft); }
+  table { width: 100%; min-width: 34rem; border-collapse: collapse; font-size: var(--fs-small); text-align: left; }
+  th, td { padding: 12px 16px; vertical-align: top; border-bottom: 1px solid var(--line-soft); }
+  th { font-weight: 500; color: var(--brand); background: var(--cream); }
+  td { color: var(--brand-ink); }
+  tbody tr:last-child td { border-bottom: 0; }
+  @media (min-width: 960px) {
+    .doc { grid-template-columns: 17rem minmax(0, 1fr); gap: 64px; }
+    .toc { position: sticky; top: 96px; }
+  }
+</style>

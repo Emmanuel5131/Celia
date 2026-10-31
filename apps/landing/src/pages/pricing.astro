@@ -1,0 +1,22 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import SectionPricing from '../components/SectionPricing.astro';
+import SectionCta from '../components/SectionCta.astro';
+import Footer from '../components/Footer.astro';
+import { pricing } from '../data/pricing';
+import { site } from '../data/site';
+import { graph, organization, website, webPage } from '../lib/schema';
+
+const title = `Pricing · ${site.name}`;
+const description = pricing.lead;
+const jsonLd = graph(organization(), website(), webPage({ path: '/pricing/', title, description }));
+---
+<Layout title={title} description={description} jsonLd={jsonLd}>
+  <Header />
+  <main id="main" tabindex="-1">
+    <SectionPricing />
+    <SectionCta />
+  </main>
+  <Footer />
+</Layout>

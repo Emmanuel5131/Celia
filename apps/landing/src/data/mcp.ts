@@ -15,7 +15,7 @@ export const mcp = {
   ],
   process: {
     title: 'From claim to case.',
-    lead: 'We use AI agents to help verify victims’ claims against onchain evidence and offchain records, and people review every one. We build the base case that researchers, law firms, investigators, and law enforcement can use to build credible crypto fraud cases.',
+    lead: 'Celia is built to take in thousands of claims. AI agents do the first pass, checking each claim against onchain evidence and offchain records. People do the rest: they onboard every organisation, organise claims into cases, and review and confirm every result. We build the base case that researchers, law firms, investigators and law enforcement can use to build credible crypto fraud cases.',
     steps: [
       { title: 'Victims send claims', text: 'People tell us what happened and prove the wallet is theirs. A claim stays alleged until it is verified.' },
       { title: 'An agent and a person verify', text: 'An AI agent helps check each claim against onchain evidence and offchain records. A person at Celia reviews everything and confirms it. The agent never confirms a claim.' },

@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import SectionLegal from '../components/SectionLegal.astro';
+import Footer from '../components/Footer.astro';
+import { terms } from '../data/terms';
+import { site } from '../data/site';
+import { graph, organization, website, webPage } from '../lib/schema';
+
+const title = `${terms.title} · ${site.name}`;
+const jsonLd = graph(organization(), website(), webPage({ path: terms.path, title, description: terms.lead }));
+---
+<!-- noindex until the bracketed company details in the text are filled in -->
+<Layout title={title} description={terms.lead} jsonLd={jsonLd} noindex>
+  <Header />
+  <main id="main" tabindex="-1">
+    <SectionLegal doc={terms} />
+  </main>
+  <Footer />
+</Layout>

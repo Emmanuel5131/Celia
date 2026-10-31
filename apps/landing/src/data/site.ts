@@ -39,6 +39,7 @@ export const nav: { links: NavItem[]; cta: NavItem } = {
     { label: 'Who can join', href: '/#join' },
     { label: 'Jurisdictions', href: '/jurisdictions/' },
     { label: 'MCP', href: '/mcp/' },
+    { label: 'Pricing', href: '/pricing/' },
     { label: 'FAQ', href: '/#faq' },
   ],
   cta: { label: 'Report fraud', href: appLogin },
@@ -50,7 +51,10 @@ export const footerNav = {
     { label: 'Method', href: '/#method' },
     { label: 'Who can join', href: '/#join' },
     { label: 'MCP', href: '/mcp/' },
+    { label: 'Pricing', href: '/pricing/' },
     { label: 'FAQ', href: '/#faq' },
+    { label: 'Privacy', href: '/privacy/' },
+    { label: 'Terms', href: '/terms/' },
   ],
   jurisdictions: [
     { label: 'United States · FRE 902(13)/(14)', href: '/jurisdictions/' },
