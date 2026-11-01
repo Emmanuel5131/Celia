@@ -255,8 +255,16 @@ const changes: {
   {
     name: 'triage_claims',
     description:
-      'Turn down the waiting claims whose evidence is bad: an address that is not valid for its chain, a video link that is not a link or did not open, or no wallet signature, file or video and no wallet activity on the chain. A claim with a signature, a file, a video that opens or a wallet that has been used is kept, and a claim staff already started reviewing is never touched. Each person is told and sees the reason for their group, unless you give another in note. The claims that stay are the ones to read with list_claims_to_review and review_claims, and to write a message for when worth a look. It reads the whole queue in one go, so one call covers every claim.',
-    shape: { note: note.optional() },
+      'Turn down the waiting claims whose evidence is bad: an address that is not valid for its chain, a video link that is not a link or did not open, or no wallet signature, file or video and no wallet activity on the chain. A claim with a signature, a file, a video that opens or a wallet that has been used is kept, and a claim staff already started reviewing is never touched. Each person is told and sees the reason for their group, unless you give another in note. The claims that stay are the ones to read with list_claims_to_review and review_claims, and to write a message for when worth a look. It works through the queue a piece at a time and rejects as it goes, so a cut-off loses nothing. If the answer says some are left, ask the staff member and call again with skip set to nextSkip, until none are left.',
+    shape: {
+      note: note.optional(),
+      skip: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('How many claims at the front of the queue to leave out: the nextSkip of the last call'),
+    },
     destructive: true,
   },
   {

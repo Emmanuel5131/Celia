@@ -9,6 +9,7 @@ const config: KnipConfig = {
     'scripts/seed/forsage-case.ts',
     'scripts/seed/clear.ts',
     'scripts/seed/case-details.ts',
+    'scripts/seed/real-cases.ts',
     'scripts/check-findings.ts',
     'scripts/backfill-applications.ts',
   ],

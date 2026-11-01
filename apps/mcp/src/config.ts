@@ -1,6 +1,7 @@
 import * as z from 'zod';
 
-const envSchema = z.object({
+const envSchema = z
+  .object({
   PORT: z.coerce.number().int().positive().default(6790),
   /** This endpoint's public URL, which the sign-in server checks the token was issued for. */
   MCP_PUBLIC_URL: z.url().optional(),
@@ -10,7 +11,19 @@ const envSchema = z.object({
   AUTH_SERVER_URL: z.url(),
   /** The Celia web app, which knows who is calling and holds the cases. */
   WEB_URL: z.url().default('http://localhost:3000'),
-});
+  /** Set by Vercel: `production` only on a real production deploy. */
+  VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
+  })
+  .superRefine((env, context) => {
+    // A Clerk development instance is for testing: anyone can register a client on it, and its users are not real people.
+    if (env.VERCEL_ENV === 'production' && new URL(env.AUTH_SERVER_URL).hostname.endsWith('.clerk.accounts.dev')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_SERVER_URL'],
+        message: 'is a Clerk development instance. Production needs the production instance\'s Frontend API URL',
+      });
+    }
+  });
 
 export type Config = {
   port: number;

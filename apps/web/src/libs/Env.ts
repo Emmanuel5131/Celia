@@ -1,5 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import * as z from 'zod';
+// Relative, not `@/`: `next.config.ts` loads this file before Next resolves the alias.
+import { clerkKeyProblem } from '../utils/ClerkKeys';
 
 export const Env = createEnv({
   server: {
@@ -34,6 +36,8 @@ export const Env = createEnv({
     STAFF_EMAILS: z.string().optional(),
     /** The Celia email domain, such as `celia.example`. A staff member's verified email must be on it (or on `STAFF_EMAILS`). */
     STAFF_EMAIL_DOMAIN: z.string().optional(),
+    /** Set to `off` to let staff into production without two-step sign-in. Only for when the sign-in provider cannot offer it; leave unset otherwise. */
+    STAFF_TWO_FACTOR: z.enum(['on', 'off']).optional(),
     /** The flat fee for institutions, as shown to applicants, such as `€1,200 a year`. Shown before anyone applies; when unset the page says the fee is published before payment. It is invoiced outside the app. */
     INSTITUTION_PRICE: z.string().optional(),
     /** OpenSanctions, for the sanctions lookup on an application. Without it the lookup shows as not set up. */
@@ -71,6 +75,8 @@ export const Env = createEnv({
   },
   shared: {
     NODE_ENV: z.enum(['test', 'development', 'production']).optional(),
+    /** Set by Vercel: `production` only on a real production deploy, where Clerk development keys are refused. */
+    VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
   },
   // You need to destructure all the keys manually
   runtimeEnv: {
@@ -93,6 +99,7 @@ export const Env = createEnv({
     MAIL_WEBHOOK_SECRET: process.env.MAIL_WEBHOOK_SECRET,
     STAFF_EMAILS: process.env.STAFF_EMAILS,
     STAFF_EMAIL_DOMAIN: process.env.STAFF_EMAIL_DOMAIN,
+    STAFF_TWO_FACTOR: process.env.STAFF_TWO_FACTOR,
     INSTITUTION_PRICE: process.env.INSTITUTION_PRICE,
     OPENSANCTIONS_API_KEY: process.env.OPENSANCTIONS_API_KEY,
     OPENCORPORATES_API_TOKEN: process.env.OPENCORPORATES_API_TOKEN,
@@ -110,5 +117,20 @@ export const Env = createEnv({
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV,
   },
 });
+
+// Server only: the secret key does not exist in the browser, and reading it there throws.
+const clerkProblem =
+  typeof window === 'undefined'
+    ? clerkKeyProblem({
+        deploy: Env.VERCEL_ENV,
+        publishableKey: Env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+        secretKey: Env.CLERK_SECRET_KEY,
+      })
+    : null;
+
+if (clerkProblem) {
+  throw new Error(clerkProblem);
+}

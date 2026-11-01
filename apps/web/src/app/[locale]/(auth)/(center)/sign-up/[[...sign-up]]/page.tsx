@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
+import { OrganizationNote } from '@/components/auth/OrganizationNote';
 import { getI18nPath } from '@/utils/Helpers';
 
 type SignUpPageProps = {
@@ -32,5 +33,10 @@ export default async function SignUpPage(props: SignUpPageProps) {
     redirect(dashboardUrl);
   }
 
-  return <SignUp path={getI18nPath('/sign-up', locale)} forceRedirectUrl={dashboardUrl} />;
+  return (
+    <>
+      <SignUp path={getI18nPath('/sign-up', locale)} forceRedirectUrl={dashboardUrl} />
+      <OrganizationNote />
+    </>
+  );
 }

@@ -164,8 +164,8 @@ function isLocal(url: string) {
   return ['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname);
 }
 
-if (!isLocal(Env.DATABASE_URL)) {
-  throw new Error('Seeding only runs against a local database.');
+if (!isLocal(Env.DATABASE_URL) && !process.argv.includes('--live')) {
+  throw new Error('Seeding only runs against a local database. Pass --live to seed a shared one.');
 }
 
 const db = createDbConnection();

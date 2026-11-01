@@ -97,9 +97,11 @@
     "sign_in_title": "Sign in to Celia",
     "sign_in_text": "Pick up your case where you left it.",
     "sign_up_title": "Create your account",
-    "sign_up_text": "Report fraud, or get professional access.",
+    "sign_up_text": "Report a loss. Law firms and organizations apply separately.",
     "point_1": "Add your wallet and a few lines of text",
-    "point_2": "Prove ownership by signing from your wallet"
+    "point_2": "Prove ownership by signing from your wallet",
+    "organization_prompt": "Signing in is for people reporting a loss. A law firm or organization?",
+    "organization_link": "Apply here"
   },
   "Jurisdictions": {
     "meta_title": "Jurisdictions",

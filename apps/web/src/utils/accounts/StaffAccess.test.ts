@@ -8,6 +8,7 @@ const base = {
   allowed: ['ana@celia.example'],
   domain: null,
   production: true,
+  twoFactorRequired: true,
 };
 
 describe(parseStaffEmails, () => {
@@ -59,6 +60,21 @@ describe(staffAccess, () => {
 
   it('lets nobody in when the list and no domain in production', () => {
     expect(staffAccess({ ...base, allowed: [] })).toBe('email_not_allowed');
+  });
+
+  it('lets listed staff in without two-step sign-in when the settings turn it off', () => {
+    expect(staffAccess({ ...base, twoFactor: false, twoFactorRequired: false })).toBe('allowed');
+  });
+
+  it('still checks the email when two-step sign-in is off', () => {
+    expect(
+      staffAccess({
+        ...base,
+        email: 'eve@celia.example',
+        twoFactor: false,
+        twoFactorRequired: false,
+      }),
+    ).toBe('email_not_allowed');
   });
 
   it('asks for two-step sign-in in production', () => {

@@ -28,12 +28,17 @@ const isClaimsApi = createRouteMatcher(['/api/claims(.*)', '/api/sandworm(.*)'])
 // The MCP routes are called by the MCP server with an assistant's OAuth token, not by a browser, so Clerk runs on them to read the token
 // and the bot check is skipped: the token is the check.
 const isMcpApi = createRouteMatcher(['/api/mcp(.*)']);
+// With a production Clerk key on a shared host such as `*.vercel.app`, Clerk loads its scripts and talks to its API through this path on
+// our own domain. Only Clerk's middleware can answer it, so it must run here before i18n routing turns the path into a 404.
+const isClerkProxy = createRouteMatcher(['/__clerk(.*)']);
 
 const isAuthPage = createRouteMatcher([
   '/sign-in(.*)',
   '/:locale/sign-in(.*)',
   '/staff/sign-in(.*)',
   '/:locale/staff/sign-in(.*)',
+  '/oauth/consent(.*)',
+  '/:locale/oauth/consent(.*)',
   '/sign-up(.*)',
   '/:locale/sign-up(.*)',
 ]);
@@ -53,6 +58,11 @@ const aj = arcjet.withRule(
 );
 
 export default async function proxy(request: NextRequest, event: NextFetchEvent) {
+  if (isClerkProxy(request)) {
+    // oxlint-disable-next-line typescript/return-await
+    return clerkMiddleware()(request, event);
+  }
+
   if (isMcpApi(request)) {
     // oxlint-disable-next-line typescript/return-await
     return clerkMiddleware()(request, event);
@@ -108,5 +118,9 @@ export const config = {
   // Match all pathnames except for
   // - … if they start with `/_next`, `/_vercel`, `monitoring` or `api`, except `/api/claims`, `/api/mcp` and `/api/sandworm`, which need Clerk's middleware
   // - … the ones containing a dot (e.g. `favicon.ico`)
-  matcher: '/((?!_next|_vercel|monitoring|api(?!/claims|/mcp|/sandworm)|.*\\..*).*)',
+  // `/__clerk` is always matched, because Clerk's scripts under it contain dots.
+  matcher: [
+    '/((?!_next|_vercel|monitoring|api(?!/claims|/mcp|/sandworm)|.*\\..*).*)',
+    '/__clerk/:path*',
+  ],
 };

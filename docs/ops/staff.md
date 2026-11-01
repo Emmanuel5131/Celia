@@ -8,7 +8,7 @@ Staff sign in through Clerk, at `/staff/sign-in` (a staff-only door with no sign
 
 1. The Clerk account has `publicMetadata.staff: true`. Set it by hand in the Clerk dashboard (or a script run by us). No form in the app can set it.
 2. The account's **verified primary email is on the Celia domain** (`STAFF_EMAIL_DOMAIN`, such as `celia.example`) or is listed in `STAFF_EMAILS` for the rare exception. With neither setting, in production, **nobody** gets in.
-3. In production the account has **two-step sign-in on**. Staff without it are sent to `/dashboard/staff/secure` to turn it on.
+3. In production the account has **two-step sign-in on**. Staff without it are sent to `/dashboard/staff/secure` to turn it on. If the sign-in provider cannot offer two-step sign-in (Clerk gates it behind a paid plan), setting `STAFF_TWO_FACTOR=off` skips this one check. The email check still applies. Treat it as a stopgap: with it off, anyone who gets into a staff member's login can read claims. Remove the setting as soon as two-step sign-in is available.
 
 There is no shared username or password: each person signs in as themselves, so the activity log names who did what.
 

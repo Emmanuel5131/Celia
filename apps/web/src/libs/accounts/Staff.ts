@@ -36,6 +36,7 @@ export function staffDecision(
     allowed: parseStaffEmails(Env.STAFF_EMAILS),
     domain: staffDomain === undefined || staffDomain === '' ? null : staffDomain,
     production: Env.NODE_ENV === 'production',
+    twoFactorRequired: Env.STAFF_TWO_FACTOR !== 'off',
   });
 }
 

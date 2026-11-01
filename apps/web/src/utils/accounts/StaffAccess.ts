@@ -24,6 +24,7 @@ export function parseStaffEmails(list?: string) {
  * @param input.allowed - The staff emails from the settings.
  * @param input.domain - The Celia email domain from the settings, or null.
  * @param input.production - Whether this is production.
+ * @param input.twoFactorRequired - Whether production demands two-step sign-in; on unless the settings turn it off.
  * @returns `allowed`, or the first reason not.
  */
 export function staffAccess(input: {
@@ -33,6 +34,7 @@ export function staffAccess(input: {
   allowed: string[];
   domain: string | null;
   production: boolean;
+  twoFactorRequired: boolean;
 }): StaffDecision {
   if (!input.staff) {
     return 'not_staff';
@@ -49,5 +51,7 @@ export function staffAccess(input: {
     return 'email_not_allowed';
   }
 
-  return input.production && !input.twoFactor ? 'needs_two_factor' : 'allowed';
+  return input.production && input.twoFactorRequired && !input.twoFactor
+    ? 'needs_two_factor'
+    : 'allowed';
 }

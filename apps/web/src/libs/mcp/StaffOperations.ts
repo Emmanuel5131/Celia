@@ -113,15 +113,11 @@ const caseName = async (caseId: string) => {
   return found?.name ?? 'an unknown case';
 };
 
-/**
- * Sorts every waiting claim by the evidence rule, asking the chain and the video hosts about the claims that need it.
- * @returns The claims to turn down, by reason, and the claims to keep.
- */
-async function triageClaims() {
-  const claims = await listAllClaimsToValidate();
+/** How many waiting claims are checked, and then turned down, as one piece of work. */
+const triageChunk = 96;
 
-  return splitByEvidence(claims, await gatherEvidenceChecks(claims));
-}
+/** How long one triage call works before it stops and reports what is left, so the call finishes inside the host's time limit. */
+const triageBudgetMs = 40_000;
 
 /**
  * Everything staff can change in the web app, as operations the MCP server can ask for. Each one runs the same action the web app
@@ -431,37 +427,67 @@ export const staffOperations: Record<string, Prepared> = {
   }),
 
   triage_claims: define({
-    input: z.object({ note: text(500).optional() }),
+    input: z.object({
+      note: text(500).optional(),
+      skip: z.number().int().min(0).optional(),
+    }),
     describe: async (input) => {
-      const { invalidAddress, badLink, nothing, keep } = await triageClaims();
-      const total = invalidAddress.length + badLink.length + nothing.length;
+      const all = await listAllClaimsToValidate();
+      const waiting = all.length - (input.skip ?? 0);
 
-      return `Reject ${total} waiting claim(s): ${invalidAddress.length} with an address that is not valid for its chain, ${badLink.length} with a video link that is not a link or did not open, and ${nothing.length} with no wallet signature, file or video and no wallet activity. Each person is told and sees the reason${input.note ? ` "${input.note}"` : ' for its group'}. The other ${keep.length} stay waiting for staff: they have a signature, a file, a video that opens or a wallet with activity, or staff already started on them.`;
+      return `Check up to ${Math.max(waiting, 0)} waiting claim(s) against the evidence rule, a piece at a time, and reject the ones whose evidence is bad: an address that is not valid for its chain, a video link that is not a link or did not open, or no wallet signature, file or video and no wallet activity. Each person is told and sees the reason${input.note ? ` "${input.note}"` : ' for its group'}. The rest stay waiting for staff. If time runs out it stops, keeps what it has done and says where to carry on.`;
     },
     run: async (input) => {
-      const { invalidAddress, badLink, nothing } = await triageClaims();
+      const started = Date.now();
+      const skip = input.skip ?? 0;
+      const all = await listAllClaimsToValidate();
+      const waiting = all.slice(skip);
+      let checked = 0;
       let done = 0;
       let skipped = 0;
 
-      for (const [ids, note] of [
-        [invalidAddress, input.note ?? invalidAddressNote],
-        [badLink, input.note ?? badLinkNote],
-        [nothing, input.note ?? lowEvidenceNote],
-      ] as const) {
-        for (let start = 0; start < ids.length; start += 100) {
-          // oxlint-disable-next-line no-await-in-loop -- one batch of up to 100 at a time
-          const batch = await rejectClaims({ claimIds: ids.slice(start, start + 100), note });
+      for (let start = 0; start < waiting.length; start += triageChunk) {
+        if (Date.now() - started > triageBudgetMs) {
+          break;
+        }
 
-          done += batch.done;
-          skipped += batch.skipped;
+        const claims = waiting.slice(start, start + triageChunk);
+        // oxlint-disable-next-line no-await-in-loop -- each piece is saved before the next is read, so a cut-off loses nothing done
+        const checks = await gatherEvidenceChecks(claims);
+        const { invalidAddress, badLink, nothing } = splitByEvidence(claims, checks);
 
-          if (batch.error) {
-            return { ok: false, problems: [batch.error], result: { done, skipped } };
+        for (const [ids, note] of [
+          [invalidAddress, input.note ?? invalidAddressNote],
+          [badLink, input.note ?? badLinkNote],
+          [nothing, input.note ?? lowEvidenceNote],
+        ] as const) {
+          if (ids.length > 0) {
+            // oxlint-disable-next-line no-await-in-loop -- one reason at a time
+            const batch = await rejectClaims({ claimIds: ids, note });
+
+            done += batch.done;
+            skipped += batch.skipped;
+
+            if (batch.error) {
+              return { ok: false, problems: [batch.error], result: { checked, done, skipped } };
+            }
           }
         }
+
+        checked += claims.length;
       }
 
-      return { ok: done > 0, result: { done, skipped } };
+      // The claims kept stay at the front of the queue, so the next call skips them and goes straight on to the ones not yet read.
+      return {
+        ok: checked > 0,
+        result: {
+          checked,
+          rejected: done,
+          notRejected: skipped,
+          left: waiting.length - checked,
+          nextSkip: skip + checked - done,
+        },
+      };
     },
   }),
 

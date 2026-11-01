@@ -75,3 +75,4 @@ docs/research/dashboard-inspiration/*.png
 # The answer key of the planted seed claims: it must never be read by the assistant under test
 .seed/
 .neon
+.env*

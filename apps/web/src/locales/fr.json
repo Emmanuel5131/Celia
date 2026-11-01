@@ -97,9 +97,11 @@
     "sign_in_title": "Connectez-vous à Celia",
     "sign_in_text": "Reprenez votre dossier là où vous l’avez laissé.",
     "sign_up_title": "Créez votre compte",
-    "sign_up_text": "Signalez une fraude, ou obtenez un accès professionnel.",
+    "sign_up_text": "Signalez une perte. Les cabinets et organisations candidatent séparément.",
     "point_1": "Ajoutez votre portefeuille et quelques lignes de texte",
-    "point_2": "Prouvez que vous en êtes propriétaire en signant depuis votre portefeuille"
+    "point_2": "Prouvez que vous en êtes propriétaire en signant depuis votre portefeuille",
+    "organization_prompt": "La connexion est pour les personnes qui signalent une perte. Un cabinet ou une organisation ?",
+    "organization_link": "Candidatez ici"
   },
   "Jurisdictions": {
     "meta_title": "Juridictions",

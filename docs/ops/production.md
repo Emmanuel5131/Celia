@@ -19,6 +19,9 @@ what was found on 2026-10-31. Each part points to the note that explains it. Not
 
 - Create the **production instance**. The app has only a `pk_test_` publishable key; production needs `pk_live_` and `sk_live_`
   (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`), set in the host's secrets.
+- **The code now refuses development Clerk.** On a Vercel production deploy (`VERCEL_ENV=production`) the web app stops at build or start
+  if the keys start with `pk_test_` or `sk_test_`, and the MCP server stops if `AUTH_SERVER_URL` is a `*.clerk.accounts.dev` address.
+  `apps/mcp/deploy.sh` has no default for `AUTH_SERVER_URL` any more. Previews and local runs may still use the development instance.
 - Turn **off dynamic client registration** on the production instance. It is a public, unauthenticated endpoint. It is on for the
   development instance only so assistants can register while testing.
 - Decide how assistants sign in to the Celia MCP in production (CIMD or a pre-registered client). Claude Code prefers CIMD when it is

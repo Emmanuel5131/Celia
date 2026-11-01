@@ -33,6 +33,17 @@ const baseConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/': ['./migrations/**/*'],
   },
+  // Next expects `rewrites` to return a promise; there is nothing to await.
+  // oxlint-disable-next-line require-await
+  async rewrites() {
+    return [
+      {
+        // Where an assistant looks for the sign-in server `<app>/__clerk` (see `api/oauth-metadata`).
+        source: '/.well-known/oauth-authorization-server/__clerk',
+        destination: '/api/oauth-metadata',
+      },
+    ];
+  },
   // Next expects `headers` to return a promise; there is nothing to await.
   // oxlint-disable-next-line require-await
   async headers() {
